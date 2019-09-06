@@ -7,6 +7,7 @@ public class NFDConsumer : MonoBehaviour
 
     GameObject broadcastRoot;
     public float listenTime;
+    public string name;
     [SerializeField]
     float suppressionTime;
     Queue<Interest> incMulticastInterests;
@@ -18,7 +19,7 @@ public class NFDConsumer : MonoBehaviour
         broadcastRoot = gameObject.transform.parent.gameObject;
 
         Message message = new Message();
-        Interest interest = new Interest("/test");
+        Interest interest = new Interest(name);
         message.interest = interest;
         message.sender = this.gameObject;
 
@@ -33,6 +34,9 @@ public class NFDConsumer : MonoBehaviour
 
     void OnMulticastInterest(Message message)
     {
-        Debug.Log("Message from "+message.sender.name+" with interest "+message.interest.name);
+        if(message.sender.name != gameObject.name)
+        {
+            Debug.Log("Message from " + message.sender.name + " with interest " + message.interest.name);
+        }
     }
 }
