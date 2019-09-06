@@ -12,6 +12,16 @@ public class NFDConsumer : MonoBehaviour
     float suppressionTime;
     Queue<Interest> incMulticastInterests;
 
+
+    void Awake()
+    {
+        //Set name of node
+        if (name == "")
+        {
+            //Set to name of game object.
+            name = gameObject.name;
+        }
+    }
     // Start is called before the first frame update
     void Start()
     {
