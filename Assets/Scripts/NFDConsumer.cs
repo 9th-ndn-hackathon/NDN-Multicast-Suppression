@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,7 +6,8 @@ public class NFDConsumer : MonoBehaviour
 {
 
     GameObject broadcastRoot;
-    public float listenTime;
+    public const float listenTime = 0.1F;
+    public float m_supress = 0.02F;
     public string name;
     [SerializeField]
     float suppressionTime;
@@ -74,6 +75,20 @@ public class NFDConsumer : MonoBehaviour
         logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
+    IEnumerator ListenRoutine()
+  {
+    yield return new WaitForSeconds(listenTime);
+    if (checkQueue(currentInterest)) {
+      logMessage("Supressing interest " + currentInterest);
+    }
+    if (duplicateCount > 1)
+      m_supress = m_supress * 2;
+    else if (duplicateCount == 1) {
+      
+    }
+
+  }
+
     void OnMulticastInterest(Packet interest)
     {
         if (interest.sender.name == gameObject.name)
@@ -103,30 +118,24 @@ public class NFDConsumer : MonoBehaviour
         Debug.Log(name + ": " + message);
     }
 
-    void enqueue(Packet interest)
-    {
-        bool inQueue = false;
-        if (incMulticastInterests.Count != 0)
-        {
-            foreach (Packet p in incMulticastInterests)
-            {
-                if ((p.name).Equals(interest.name))
-                {
-                    inQueue = true;
-                    break;
-                }
-            }
-            if (!inQueue)
-            {
-                incMulticastInterests.Enqueue(interest);
-                queueCount = incMulticastInterests.Count;
-            }
+
+    void enqueue(Packet interest) {
+      bool inQueue = checkQueue(interest);
+      if (!inQueue)
+        incMulticastInterests.Enqueue(interest);
+    }
+
+    bool checkQueue(Packet interest) {
+      bool inQueue = false;
+      if (incMulticastInterests.Count != 0) {
+        foreach (Packet p in incMulticastInterests) {
+          if ((p.name).Equals(interest.name)) {
+            inQueue = true;
+            break;
+          }
         }
-        else
-        {
-            incMulticastInterests.Enqueue(interest);
-            queueCount = incMulticastInterests.Count;
-        }
+      }
+      return inQueue;
     }
 
 }
