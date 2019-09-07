@@ -21,6 +21,6 @@ public class Metrics : MonoBehaviour
     void OnMulticastInterest(Packet interest)
     {
       noInterests++;
-      Debug.Log("Interest from " + interest.sender.name + " with name " + interest.name + "(Interest no: " + noInterests + ")");
+      //Debug.Log("Interest from " + interest.sender.name + " with name " + interest.name + "(Interest no: " + noInterests + ")");
     }
 }

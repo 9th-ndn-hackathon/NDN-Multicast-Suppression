@@ -42,49 +42,52 @@ public class NFDConsumer : MonoBehaviour
         float generationTime = MulticastManager.getInstanceOf().interestGenerationRate;
         int interestMax = MulticastManager.getInstanceOf().interestGenerationCount;
         int count = 0;
-        while(count < interestMax)
+        while (count < interestMax)
         {
-            Packet message = new Packet("/test/interest/"+count, Time.time, this.gameObject, Packet.PacketType.Interest);
+            Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
             broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
             count += 1;
             yield return new WaitForSeconds(generationTime);
         }
     }
 
-    // Update is called once per frame
-    void Update()
+    IEnumerator ProcessInterestDelay(float delay, Packet interest)
     {
+        yield return new WaitForSeconds(delay);
+        logMessage(Time.time+":Interest from " + interest.sender.name + " with name " + interest.name);
 
+        // Check if interest exists in queue and add if it does
+        enqueue(interest);
+    }
+
+    IEnumerator ProcessDataDelay(float delay, Packet data)
+    {
+        yield return new WaitForSeconds(delay);
+        logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
     void OnMulticastInterest(Packet interest)
     {
-        if(interest.sender.name == gameObject.name)
+        if (interest.sender.name == gameObject.name)
         {
             return;
         }
 
-        // Check if interest exists in queue and add if it does
-        enqueue(interest);
-        
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-
-        logMessage("Interest from " + interest.sender.name + " with name " + interest.name + " (distance " + distance + ")");
-
+        StartCoroutine(ProcessInterestDelay(distance / 1000f,interest));
     }
 
     void OnMulticastData(Packet data)
     {
-        if(data.sender.name == gameObject.name)
+        if (data.sender.name == gameObject.name)
         {
             return;
         }
 
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(data.sender.transform.position, gameObject.transform.position));
-
-        logMessage("Data from " + data.sender.name + " with name " + data.name + " (distance " + distance + ")");
+        StartCoroutine(ProcessDataDelay(distance / 1000f, data));
     }
 
     void logMessage(string message)
@@ -92,21 +95,28 @@ public class NFDConsumer : MonoBehaviour
         Debug.Log(name + ": " + message);
     }
 
-    void enqueue(Packet interest) {
-      bool inQueue = false;
-      if (incMulticastInterests.Count != 0) {
-        foreach (Packet p in incMulticastInterests) {
-          if ((p.name).Equals(interest.name)) {
-            inQueue = true;
-            break;
-          }
+    void enqueue(Packet interest)
+    {
+        bool inQueue = false;
+        if (incMulticastInterests.Count != 0)
+        {
+            foreach (Packet p in incMulticastInterests)
+            {
+                if ((p.name).Equals(interest.name))
+                {
+                    inQueue = true;
+                    break;
+                }
+            }
+            if (!inQueue)
+            {
+                incMulticastInterests.Enqueue(interest);
+            }
         }
-          if (!inQueue) {
+        else
+        {
             incMulticastInterests.Enqueue(interest);
-          }
-      } else {
-        incMulticastInterests.Enqueue(interest);
-      }
+        }
     }
 
 }
