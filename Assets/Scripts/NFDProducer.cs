@@ -24,34 +24,34 @@ public class NFDProducer : MonoBehaviour
         broadcastRoot = gameObject.transform.parent.gameObject;
     }
 
-    void OnMulticastInterest(Message message)
+    void OnMulticastInterest(Packet interest)
     {
-        if(message.sender.name == gameObject.name)
+        if(interest.sender.name == gameObject.name)
         {
             return;
         }
         
         //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(message.sender.transform.position, gameObject.transform.position));
+        float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
 
-        logMessage("Interest from " + message.sender.name + " with name " + message.name + " (distance " + distance + ")");
+        logMessage("Interest from " + interest.sender.name + " with name " + interest.name + " (distance " + distance + ")");
 
-        Message data = new Message("/test/interest/data_response", 0.0f, this.gameObject, Message.MessageType.Data);
+        Packet data = new Packet(interest.name + "/response", 0.0f, this.gameObject, Packet.PacketType.Data);
 
         broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);
     }
 
-    void OnMulticastData(Message message)
+    void OnMulticastData(Packet data)
     {
-        if(message.sender.name == gameObject.name)
+        if(data.sender.name == gameObject.name)
         {
             return;
         }
 
         //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(message.sender.transform.position, gameObject.transform.position));
+        float distance = Mathf.Abs(Vector3.Distance(data.sender.transform.position, gameObject.transform.position));
 
-        logMessage("Data from " + message.sender.name + " with name " + message.name + " (distance " + distance + ")");
+        logMessage("Data from " + data.sender.name + " with name " + data.name + " (distance " + distance + ")");
     }
 
     // Update is called once per frame
