@@ -36,7 +36,7 @@ public class NFDProducer : MonoBehaviour
 
         logMessage("Interest from " + interest.sender.name + " with name " + interest.name + " (distance " + distance + ")");
 
-        Packet data = new Packet(interest.name + "/response", 0.0f, this.gameObject, Packet.PacketType.Data);
+        Packet data = new Packet(interest.name, Time.time, this.gameObject, Packet.PacketType.Data);
 
         broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);
     }

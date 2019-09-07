@@ -27,9 +27,14 @@ public class NFDConsumer : MonoBehaviour
     {
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
-        StartCoroutine(GenerationRoutine());
-        
+        float startDelay = Random.Range(0, 3f);
+        StartCoroutine(DelayedStart(startDelay));
+    }
 
+    IEnumerator DelayedStart(float waitTime)
+    {
+        yield return new WaitForSeconds(waitTime);
+        StartCoroutine(GenerationRoutine());
     }
 
     IEnumerator GenerationRoutine()
@@ -39,7 +44,7 @@ public class NFDConsumer : MonoBehaviour
         int count = 0;
         while(count < interestMax)
         {
-            Packet message = new Packet("/test/interest/"+count, 0.0f, this.gameObject, Packet.PacketType.Interest);
+            Packet message = new Packet("/test/interest/"+count, Time.time, this.gameObject, Packet.PacketType.Interest);
             broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
             count += 1;
             yield return new WaitForSeconds(generationTime);
