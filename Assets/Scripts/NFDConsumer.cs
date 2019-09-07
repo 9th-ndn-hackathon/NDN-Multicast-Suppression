@@ -10,7 +10,7 @@ public class NFDConsumer : MonoBehaviour
     public string name;
     [SerializeField]
     float suppressionTime;
-    Queue<Message> incMulticastInterests;
+    Queue<Packet> incMulticastInterests;
 
     void Awake()
     {
@@ -25,10 +25,10 @@ public class NFDConsumer : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        incMulticastInterests = new Queue<Message>();
+        incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
 
-        Message message = new Message("/test/interest", 0.0f, this.gameObject, Message.MessageType.Interest);
+        Packet message = new Packet("/test/interest", 0.0f, this.gameObject, Packet.PacketType.Interest);
 
         if (name == "Con A") {
             broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
@@ -41,30 +41,30 @@ public class NFDConsumer : MonoBehaviour
         
     }
 
-    void OnMulticastInterest(Message message)
+    void OnMulticastInterest(Packet interest)
     {
-        if(message.sender.name == gameObject.name)
+        if(interest.sender.name == gameObject.name)
         {
             return;
         }
 
         //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(message.sender.transform.position, gameObject.transform.position));
+        float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
 
-        logMessage("Interest from " + message.sender.name + " with name " + message.name + " (distance " + distance + ")");
+        logMessage("Interest from " + interest.sender.name + " with name " + interest.name + " (distance " + distance + ")");
     }
 
-    void OnMulticastData(Message message)
+    void OnMulticastData(Packet data)
     {
-        if(message.sender.name == gameObject.name)
+        if(data.sender.name == gameObject.name)
         {
             return;
         }
 
         //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(message.sender.transform.position, gameObject.transform.position));
+        float distance = Mathf.Abs(Vector3.Distance(data.sender.transform.position, gameObject.transform.position));
 
-        logMessage("Data from " + message.sender.name + " with name " + message.name + " (distance " + distance + ")");
+        logMessage("Data from " + data.sender.name + " with name " + data.name + " (distance " + distance + ")");
     }
 
     void logMessage(string message) 
