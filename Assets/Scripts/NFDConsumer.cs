@@ -27,11 +27,22 @@ public class NFDConsumer : MonoBehaviour
     {
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
+        StartCoroutine(GenerationRoutine());
+        
 
-        Packet message = new Packet("/test/interest", 0.0f, this.gameObject, Packet.PacketType.Interest);
+    }
 
-        if (name == "Con A") {
+    IEnumerator GenerationRoutine()
+    {
+        float generationTime = MulticastManager.getInstanceOf().interestGenerationRate;
+        int interestMax = MulticastManager.getInstanceOf().interestGenerationCount;
+        int count = 0;
+        while(count < interestMax)
+        {
+            Packet message = new Packet("/test/interest/"+count, 0.0f, this.gameObject, Packet.PacketType.Interest);
             broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
+            count += 1;
+            yield return new WaitForSeconds(generationTime);
         }
     }
 
