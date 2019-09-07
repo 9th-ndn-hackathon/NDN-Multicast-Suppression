@@ -26,7 +26,7 @@ public class NFDProducer : MonoBehaviour
 
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
     {
-        yield return new WaitForSeconds(delay * MulticastManager.getInstanceOf().timeMultiplier);
+        yield return new WaitForSeconds(delay);
         logMessage(Time.time + ":Interest from " + interest.sender.name + " with name " + interest.name);
         Packet data = new Packet(interest.name, Time.time, this.gameObject, Packet.PacketType.Data);
         broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);
@@ -41,7 +41,7 @@ public class NFDProducer : MonoBehaviour
         
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-        StartCoroutine(ProcessInterestDelay(distance / 1000f, interest));
+        StartCoroutine(ProcessInterestDelay(distance / 1000f * (1 / Time.timeScale), interest));
 
     }
 

@@ -34,7 +34,7 @@ public class NFDConsumer : MonoBehaviour
     {
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
-        float startDelay = Random.Range(0, .1f);
+        float startDelay = Random.Range(0, .1f * (1f / Time.timeScale));
         StartCoroutine(DelayedStart(startDelay));
     }
 
@@ -56,7 +56,7 @@ public class NFDConsumer : MonoBehaviour
             {
                 Debug.Log("Found in queue of " + name);
                 count += 1;
-                yield return new WaitForSeconds(generationTime);
+                yield return new WaitForSeconds(generationTime * (1f / Time.timeScale));
                 continue;
             }
             currentInterest = message;
@@ -68,7 +68,7 @@ public class NFDConsumer : MonoBehaviour
             StartCoroutine(SuppressionRoutine(message));
 
             count += 1;
-            yield return new WaitForSeconds(generationTime);
+            yield return new WaitForSeconds(generationTime * (1f / Time.timeScale));
         }
     }
 
@@ -95,7 +95,7 @@ public class NFDConsumer : MonoBehaviour
     }
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
     {
-        yield return new WaitForSeconds(delay * MulticastManager.getInstanceOf().timeMultiplier);
+        yield return new WaitForSeconds(delay);
         logMessage(Time.time + ":Interest from " + interest.sender.name + " with name " + interest.name);
 
         // Check if interest exists in queue and add if it does
@@ -111,17 +111,17 @@ public class NFDConsumer : MonoBehaviour
 
     IEnumerator ProcessDataDelay(float delay, Packet data)
     {
-        yield return new WaitForSeconds(delay * MulticastManager.getInstanceOf().timeMultiplier);
+        yield return new WaitForSeconds(delay);
         logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
     IEnumerator ListenRoutine()
     {
-        yield return new WaitForSeconds(listenTime);
+        yield return new WaitForSeconds(listenTime * (1f/Time.timeScale));
         if (duplicateCount > 1)
             if (m_supress == 0)
             {
-                m_supress = .02f * MulticastManager.getInstanceOf().timeMultiplier;
+                m_supress = .05f * 1/Time.timeScale;
             }
             else
             {
@@ -146,7 +146,8 @@ public class NFDConsumer : MonoBehaviour
 
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-        StartCoroutine(ProcessInterestDelay(distance / 1000f, interest));
+        logMessage("Waiting " + (distance / 1000f * (1 / Time.timeScale)));
+        StartCoroutine(ProcessInterestDelay(distance / 1000f * (1 / Time.timeScale), interest));
     }
 
     void OnMulticastData(Packet data)
@@ -158,7 +159,8 @@ public class NFDConsumer : MonoBehaviour
 
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(data.sender.transform.position, gameObject.transform.position));
-        StartCoroutine(ProcessDataDelay(distance / 1000f, data));
+        logMessage("Waiting " + (distance / 1000f * (1 / Time.timeScale)));
+        StartCoroutine(ProcessDataDelay(distance / 1000f * (1 / Time.timeScale), data));
     }
 
     void logMessage(string message)

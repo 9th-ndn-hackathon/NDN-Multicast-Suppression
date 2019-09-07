@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class Metrics : MonoBehaviour
 {
+    [SerializeField]
    int noInterests = 0;
 
     // Start is called before the first frame update
