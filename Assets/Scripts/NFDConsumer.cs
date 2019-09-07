@@ -11,6 +11,12 @@ public class NFDConsumer : MonoBehaviour
     [SerializeField]
     float suppressionTime;
     Queue<Packet> incMulticastInterests;
+    [SerializeField]
+    int queueCount;
+
+    //Current Interest wanting to be expressed.
+    Packet currentInterest = null;
+    int duplicateCount;
 
     void Awake()
     {
@@ -45,7 +51,9 @@ public class NFDConsumer : MonoBehaviour
         while (count < interestMax)
         {
             Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
-            broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
+            currentInterest = message;
+            duplicateCount = 0;
+            //broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
             count += 1;
             yield return new WaitForSeconds(generationTime);
         }
@@ -111,11 +119,13 @@ public class NFDConsumer : MonoBehaviour
             if (!inQueue)
             {
                 incMulticastInterests.Enqueue(interest);
+                queueCount = incMulticastInterests.Count;
             }
         }
         else
         {
             incMulticastInterests.Enqueue(interest);
+            queueCount = incMulticastInterests.Count;
         }
     }
 
