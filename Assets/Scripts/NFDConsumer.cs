@@ -10,7 +10,7 @@ public class NFDConsumer : MonoBehaviour
     public string name;
     [SerializeField]
     float suppressionTime;
-    Queue<Interest> incMulticastInterests;
+    Queue<Message> incMulticastInterests;
 
 
     void Awake()
@@ -25,12 +25,12 @@ public class NFDConsumer : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        incMulticastInterests = new Queue<Interest>();
+        incMulticastInterests = new Queue<Message>();
         broadcastRoot = gameObject.transform.parent.gameObject;
 
         Message message = new Message();
-        Interest interest = new Interest(name);
         message.type = Message.MessageType.Interest;
+        message.name = "test";
         message.sender = this.gameObject;
 
         broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
@@ -44,10 +44,15 @@ public class NFDConsumer : MonoBehaviour
 
     void OnMulticastInterest(Message message)
     {
-        if(message.sender.name != gameObject.name)
-        { 
-            Debug.Log("Interest from " + message.sender.name + " with interest " + message.name);
+        if(message.sender.name == gameObject.name)
+        {
+            return;
         }
+
+        Debug.Log("Interest from " + message.sender.name + " with interest " + message.name);
+        //Find the distance between sender and this node.  This is the propagaton delay.
+        float distance = Mathf.Abs(Vector3.Distance(message.sender.transform.position, gameObject.transform.position));
+        Debug.Log("Distance is " + distance);
     }
 
     void OnMulticastData(Message message)
