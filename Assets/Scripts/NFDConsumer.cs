@@ -30,7 +30,7 @@ public class NFDConsumer : MonoBehaviour
 
         Message message = new Message();
         Interest interest = new Interest(name);
-        message.interest = interest;
+        message.type = Message.MessageType.Interest;
         message.sender = this.gameObject;
 
         broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
@@ -45,8 +45,13 @@ public class NFDConsumer : MonoBehaviour
     void OnMulticastInterest(Message message)
     {
         if(message.sender.name != gameObject.name)
-        {
-            Debug.Log("Message from " + message.sender.name + " with interest " + message.interest.name);
+        { 
+            Debug.Log("Interest from " + message.sender.name + " with interest " + message.name);
         }
+    }
+
+    void OnMulticastData(Message message)
+    {
+
     }
 }
