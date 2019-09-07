@@ -54,7 +54,11 @@ public class NFDConsumer : MonoBehaviour
             Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
             currentInterest = message;
             duplicateCount = 0;
-            //broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
+
+            // Listen for the same interest and set supression time
+            StartCoroutine(ListenRoutine());
+
+            // broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
             count += 1;
             yield return new WaitForSeconds(generationTime);
         }
@@ -78,15 +82,13 @@ public class NFDConsumer : MonoBehaviour
     IEnumerator ListenRoutine()
   {
     yield return new WaitForSeconds(listenTime);
-    if (checkQueue(currentInterest)) {
-      logMessage("Supressing interest " + currentInterest);
-    }
     if (duplicateCount > 1)
       m_supress = m_supress * 2;
     else if (duplicateCount == 1) {
-      
+      m_supress = 0;
+    } else {
+      yield break;
     }
-
   }
 
     void OnMulticastInterest(Packet interest)
