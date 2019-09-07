@@ -6,7 +6,7 @@ public class MulticastManager : MonoBehaviour
 {
     public float interestGenerationRate;
     public int interestGenerationCount;
-
+    public float timeMultiplier;
     private static MulticastManager instance;
 
     public static MulticastManager getInstanceOf()

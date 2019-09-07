@@ -26,7 +26,7 @@ public class NFDProducer : MonoBehaviour
 
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
     {
-        yield return new WaitForSeconds(delay);
+        yield return new WaitForSeconds(delay * MulticastManager.getInstanceOf().timeMultiplier);
         logMessage(Time.time + ":Interest from " + interest.sender.name + " with name " + interest.name);
         Packet data = new Packet(interest.name, Time.time, this.gameObject, Packet.PacketType.Data);
         broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);

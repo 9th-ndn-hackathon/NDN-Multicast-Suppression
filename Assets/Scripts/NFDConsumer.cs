@@ -7,10 +7,9 @@ public class NFDConsumer : MonoBehaviour
 
     GameObject broadcastRoot;
     public const float listenTime = 0.1F;
-    public float m_supress = 0.02F;
-    public string name;
     [SerializeField]
-    float suppressionTime;
+    float m_supress = 0F;
+    public string name;
     Queue<Packet> incMulticastInterests;
     [SerializeField]
     int queueCount;
@@ -18,6 +17,7 @@ public class NFDConsumer : MonoBehaviour
     //Current Interest wanting to be expressed.
     Packet currentInterest = null;
     int duplicateCount;
+    bool suppressCurrentInterest = false;
 
     void Awake()
     {
@@ -34,7 +34,7 @@ public class NFDConsumer : MonoBehaviour
     {
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
-        float startDelay = Random.Range(0, 3f);
+        float startDelay = Random.Range(0, .1f);
         StartCoroutine(DelayedStart(startDelay));
     }
 
@@ -52,44 +52,90 @@ public class NFDConsumer : MonoBehaviour
         while (count < interestMax)
         {
             Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
+            if (checkQueue(message))
+            {
+                Debug.Log("Found in queue of " + name);
+                count += 1;
+                yield return new WaitForSeconds(generationTime);
+                continue;
+            }
             currentInterest = message;
             duplicateCount = 0;
+            suppressCurrentInterest = false;
 
             // Listen for the same interest and set supression time
             StartCoroutine(ListenRoutine());
+            StartCoroutine(SuppressionRoutine(message));
 
-            // broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
             count += 1;
             yield return new WaitForSeconds(generationTime);
         }
     }
 
+    IEnumerator SuppressionRoutine(Packet message)
+    {
+        if(m_supress > 0)
+        {
+            float randomDelay = Random.Range(0, m_supress);
+            yield return new WaitForSeconds(randomDelay);
+            if (!suppressCurrentInterest)
+            {
+                logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
+                broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
+                duplicateCount += 1;
+            }
+
+        }
+        else
+        {
+            logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
+            broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
+            duplicateCount += 1;
+        }
+    }
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
     {
-        yield return new WaitForSeconds(delay);
-        logMessage(Time.time+":Interest from " + interest.sender.name + " with name " + interest.name);
+        yield return new WaitForSeconds(delay * MulticastManager.getInstanceOf().timeMultiplier);
+        logMessage(Time.time + ":Interest from " + interest.sender.name + " with name " + interest.name);
 
         // Check if interest exists in queue and add if it does
         enqueue(interest);
+
+        //Check if it is a duplicate of the interest we are currently interested in.
+        if(currentInterest != null && interest.name == currentInterest.name)
+        {
+            duplicateCount += 1;
+            suppressCurrentInterest = true;
+        }
     }
 
     IEnumerator ProcessDataDelay(float delay, Packet data)
     {
-        yield return new WaitForSeconds(delay);
+        yield return new WaitForSeconds(delay * MulticastManager.getInstanceOf().timeMultiplier);
         logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
     IEnumerator ListenRoutine()
-  {
-    yield return new WaitForSeconds(listenTime);
-    if (duplicateCount > 1)
-      m_supress = m_supress * 2;
-    else if (duplicateCount == 1) {
-      m_supress = 0;
-    } else {
-      yield break;
+    {
+        yield return new WaitForSeconds(listenTime);
+        if (duplicateCount > 1)
+            if (m_supress == 0)
+            {
+                m_supress = .02f * MulticastManager.getInstanceOf().timeMultiplier;
+            }
+            else
+            {
+                m_supress = m_supress * 2;
+            }
+        else if (duplicateCount == 1 && !suppressCurrentInterest)
+        {
+            m_supress = 0;
+        }
+        else
+        {
+            yield break;
+        }
     }
-  }
 
     void OnMulticastInterest(Packet interest)
     {
@@ -100,7 +146,7 @@ public class NFDConsumer : MonoBehaviour
 
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-        StartCoroutine(ProcessInterestDelay(distance / 1000f,interest));
+        StartCoroutine(ProcessInterestDelay(distance / 1000f, interest));
     }
 
     void OnMulticastData(Packet data)
@@ -121,23 +167,32 @@ public class NFDConsumer : MonoBehaviour
     }
 
 
-    void enqueue(Packet interest) {
-      bool inQueue = checkQueue(interest);
-      if (!inQueue)
-        incMulticastInterests.Enqueue(interest);
+    void enqueue(Packet interest)
+    {
+        bool inQueue = checkQueue(interest);
+        if (!inQueue)
+        {
+            incMulticastInterests.Enqueue(interest);
+            queueCount += 1;
+        }
+            
     }
 
-    bool checkQueue(Packet interest) {
-      bool inQueue = false;
-      if (incMulticastInterests.Count != 0) {
-        foreach (Packet p in incMulticastInterests) {
-          if ((p.name).Equals(interest.name)) {
-            inQueue = true;
-            break;
-          }
+    bool checkQueue(Packet interest)
+    {
+        bool inQueue = false;
+        if (incMulticastInterests.Count != 0)
+        {
+            foreach (Packet p in incMulticastInterests)
+            {
+                if ((p.name).Equals(interest.name))
+                {
+                    inQueue = true;
+                    break;
+                }
+            }
         }
-      }
-      return inQueue;
+        return inQueue;
     }
 
 }
