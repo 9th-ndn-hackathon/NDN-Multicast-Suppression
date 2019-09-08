@@ -3,36 +3,58 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Circle : MonoBehaviour
+public class CircleGrowth : MonoBehaviour
 {
-    public int segments;
-    public float radius;
-    LineRenderer line;
-       
-    void Start ()
-    {
-        line = gameObject.GetComponent<LineRenderer>();
-       
-        line.SetVertexCount (segments + 1);
-        line.useWorldSpace = false;
-        CreatePoints();
+    private int segments = 50;
+    private float radius = 0;
+    private float maxRadius = 100000;
+    private float growthRate;
+    private float lifeTime;
 
+    private float radiusGrowthPerGrowthInterval;
+    private float growthInterval;
+    
+    public LineRenderer line;
+
+    public void setParameters(Transform parentTransform, float growthRate, float lifeTime) 
+    {
+        this.gameObject.transform.SetParent(parentTransform, false);
+
+        this.growthRate = growthRate;
+        this.lifeTime = lifeTime;
+       
+        line.useWorldSpace = false;
+        line.SetVertexCount(segments + 1);
+
+        // TODO: calculate radiusGrowthPerGrowthInterval from growthRate
+        // TODO: calculate growthInteral from growthRate
+        radiusGrowthPerGrowthInterval = .5f;
+        growthInterval = 1.0f / growthRate / Time.timeScale;
+    
+    }
+
+    public void startGrowth() {
         StartCoroutine(GrowthRoutine());
+        StartCoroutine(LifetimeCountdownRoutine());
     }
 
     IEnumerator GrowthRoutine()
     {
-        float growthTime = .01f;
-        int radiusMax = 20;
-        
-        while (radius < radiusMax)
+        CreatePoints();
+
+        while (radius < maxRadius)
         {
-            radius += .05f;
+            radius += radiusGrowthPerGrowthInterval;
             CreatePoints();
-            yield return new WaitForSeconds(growthTime);
+            yield return new WaitForSeconds(growthInterval);
         }
     }
 
+    IEnumerator LifetimeCountdownRoutine()
+    {
+        yield return new WaitForSeconds(lifeTime);
+        Object.Destroy(this.gameObject);
+    }
    
     void CreatePoints ()
     {
@@ -51,3 +73,4 @@ public class Circle : MonoBehaviour
         }
     }
 }
+

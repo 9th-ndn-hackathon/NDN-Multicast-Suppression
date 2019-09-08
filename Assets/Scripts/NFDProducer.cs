@@ -5,6 +5,8 @@ using UnityEngine;
 public class NFDProducer : MonoBehaviour
 {
 
+    public GameObject packetTransmissionVisualizer;
+
     GameObject broadcastRoot;
     public string name;
 
@@ -29,7 +31,7 @@ public class NFDProducer : MonoBehaviour
         yield return new WaitForSeconds(delay);
         logMessage(Time.time + ":Interest from " + interest.sender.name + " with name " + interest.name);
         Packet data = new Packet(interest.name, Time.time, this.gameObject, Packet.PacketType.Data);
-        broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);
+        sendData(data);
     }
 
     void OnMulticastInterest(Packet interest)
@@ -54,5 +56,17 @@ public class NFDProducer : MonoBehaviour
     void logMessage(string message) 
     {
         Debug.Log(name + ": " + message);
+    }
+
+    private void sendData(Packet data) {
+        broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);
+        emitPacketTransmissionVisual(100.0f, 100.0f);
+    }
+
+    private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
+        GameObject newTransmissionVisualizer = Instantiate(packetTransmissionVisualizer, this.gameObject.transform);
+        CircleGrowth growthScript = newTransmissionVisualizer.GetComponent<CircleGrowth>();
+        growthScript.setParameters(this.gameObject.transform, growthRate, lifeTime);
+        growthScript.startGrowth();
     }
 }

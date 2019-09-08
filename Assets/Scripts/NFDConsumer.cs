@@ -5,6 +5,8 @@ using UnityEngine;
 public class NFDConsumer : MonoBehaviour
 {
 
+    public GameObject packetTransmissionVisualizer;
+
     GameObject broadcastRoot;
     public const float listenTime = 0.1F;
     [SerializeField]
@@ -81,7 +83,7 @@ public class NFDConsumer : MonoBehaviour
             if (!suppressCurrentInterest)
             {
                 logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
-                broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
+                sendInterest(message);
                 duplicateCount += 1;
             }
 
@@ -89,7 +91,7 @@ public class NFDConsumer : MonoBehaviour
         else
         {
             logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
-            broadcastRoot.BroadcastMessage("OnMulticastInterest", message, SendMessageOptions.DontRequireReceiver);
+            sendInterest(message);
             duplicateCount += 1;
         }
     }
@@ -195,6 +197,18 @@ public class NFDConsumer : MonoBehaviour
             }
         }
         return inQueue;
+    }
+
+    private void sendInterest(Packet interest) {
+        broadcastRoot.BroadcastMessage("OnMulticastInterest", interest, SendMessageOptions.DontRequireReceiver);
+        emitPacketTransmissionVisual(100.0f, 100.0f);
+    }
+
+    private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
+        GameObject newTransmissionVisualizer = Instantiate(packetTransmissionVisualizer);
+        CircleGrowth growthScript = newTransmissionVisualizer.GetComponent<CircleGrowth>();
+        growthScript.setParameters(this.gameObject.transform, growthRate, lifeTime);
+        growthScript.startGrowth();
     }
 
 }

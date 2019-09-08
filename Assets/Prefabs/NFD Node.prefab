@@ -145,6 +145,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7dcdb169b4f752a498266268fb25a87e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  packetTransmissionVisualizer: {fileID: 4927566021137766839, guid: 2689f6dce5f9d864e81773f62548be6a,
+    type: 3}
+  transform: {fileID: 5708417065016984472}
   m_supress: 0
   name: 
   queueCount: 0
