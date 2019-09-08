@@ -9,8 +9,7 @@ public class NFDConsumer : MonoBehaviour
 
     GameObject broadcastRoot;
     float listenTime;
-    [SerializeField]
-    float m_supress = 0F;
+    public float m_supress = 0F;
     public string name;
     Queue<Packet> incMulticastInterests;
     [SerializeField]
