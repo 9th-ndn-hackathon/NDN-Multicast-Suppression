@@ -10,6 +10,7 @@ public class NFDConsumer : MonoBehaviour
     GameObject broadcastRoot;
     float listenTime;
     public float m_supress = 0F;
+    public int interestsSuppressed = 0;
     public string name;
     Queue<Packet> incMulticastInterests;
     [SerializeField]
@@ -85,6 +86,10 @@ public class NFDConsumer : MonoBehaviour
                 logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
                 sendInterest(message);
                 duplicateCount += 1;
+            }
+            else
+            {
+                interestsSuppressed += 1;
             }
 
         }
