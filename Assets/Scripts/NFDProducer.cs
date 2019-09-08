@@ -60,13 +60,16 @@ public class NFDProducer : MonoBehaviour
 
     private void sendData(Packet data) {
         broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);
-        emitPacketTransmissionVisual(100.0f, 100.0f);
+        emitPacketTransmissionVisual(1000.0f * (1 / Time.timeScale), 3.0f);
     }
 
     private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
-        GameObject newTransmissionVisualizer = Instantiate(packetTransmissionVisualizer, this.gameObject.transform);
+        GameObject newTransmissionVisualizer = Instantiate(packetTransmissionVisualizer);
+        newTransmissionVisualizer.transform.SetParent(gameObject.transform);
+        newTransmissionVisualizer.transform.localPosition = Vector3.zero;
         CircleGrowth growthScript = newTransmissionVisualizer.GetComponent<CircleGrowth>();
         growthScript.setParameters(this.gameObject.transform, growthRate, lifeTime);
         growthScript.startGrowth();
+
     }
 }

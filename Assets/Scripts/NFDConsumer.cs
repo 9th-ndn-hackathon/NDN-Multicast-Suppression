@@ -8,7 +8,7 @@ public class NFDConsumer : MonoBehaviour
     public GameObject packetTransmissionVisualizer;
 
     GameObject broadcastRoot;
-    public const float listenTime = 0.1F;
+    float listenTime;
     [SerializeField]
     float m_supress = 0F;
     public string name;
@@ -37,6 +37,7 @@ public class NFDConsumer : MonoBehaviour
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
         float startDelay = Random.Range(0, .1f * (1f / Time.timeScale));
+        listenTime = MulticastManager.getInstanceOf().listenTime;
         StartCoroutine(DelayedStart(startDelay));
     }
 
@@ -201,11 +202,13 @@ public class NFDConsumer : MonoBehaviour
 
     private void sendInterest(Packet interest) {
         broadcastRoot.BroadcastMessage("OnMulticastInterest", interest, SendMessageOptions.DontRequireReceiver);
-        emitPacketTransmissionVisual(100.0f, 100.0f);
+        emitPacketTransmissionVisual(1000.0f * (1f / Time.timeScale), 3f);
     }
 
     private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
         GameObject newTransmissionVisualizer = Instantiate(packetTransmissionVisualizer);
+        newTransmissionVisualizer.transform.SetParent(gameObject.transform);
+        newTransmissionVisualizer.transform.localPosition = Vector3.zero;
         CircleGrowth growthScript = newTransmissionVisualizer.GetComponent<CircleGrowth>();
         growthScript.setParameters(this.gameObject.transform, growthRate, lifeTime);
         growthScript.startGrowth();

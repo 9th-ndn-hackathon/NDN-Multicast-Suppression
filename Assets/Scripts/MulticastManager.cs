@@ -6,6 +6,7 @@ public class MulticastManager : MonoBehaviour
 {
     public float interestGenerationRate;
     public int interestGenerationCount;
+    public float listenTime;
     private static MulticastManager instance;
 
     public static MulticastManager getInstanceOf()
