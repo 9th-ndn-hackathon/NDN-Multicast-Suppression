@@ -10,6 +10,8 @@ public class NFDProducer : MonoBehaviour
     GameObject broadcastRoot;
     public string name;
 
+    private float propagationDelayConstant; 
+
     void Awake()
     {
         //Set name of node
@@ -23,6 +25,7 @@ public class NFDProducer : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        propagationDelayConstant = 1000f * Time.timeScale;
         broadcastRoot = gameObject.transform.parent.gameObject;
     }
 
@@ -43,7 +46,7 @@ public class NFDProducer : MonoBehaviour
         
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-        StartCoroutine(ProcessInterestDelay(distance / 1000f * (1 / Time.timeScale), interest));
+        StartCoroutine(ProcessInterestDelay(calculatePropagationDelay(distance), interest));
 
     }
 
@@ -60,7 +63,7 @@ public class NFDProducer : MonoBehaviour
 
     private void sendData(Packet data) {
         broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);
-        emitPacketTransmissionVisual(1000.0f * (1 / Time.timeScale), 3.0f);
+        emitPacketTransmissionVisual(propagationDelayConstant, 3.0f);
     }
 
     private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
@@ -68,8 +71,12 @@ public class NFDProducer : MonoBehaviour
         newTransmissionVisualizer.transform.SetParent(gameObject.transform);
         newTransmissionVisualizer.transform.localPosition = Vector3.zero;
         CircleGrowth growthScript = newTransmissionVisualizer.GetComponent<CircleGrowth>();
-        growthScript.setParameters(this.gameObject.transform, growthRate, lifeTime);
+        growthScript.setParameters(growthRate, lifeTime);
         growthScript.startGrowth();
 
+    }
+
+    private float calculatePropagationDelay(float distance) {
+        return distance / propagationDelayConstant;
     }
 }

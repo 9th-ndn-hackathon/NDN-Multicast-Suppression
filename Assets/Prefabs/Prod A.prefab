@@ -379,7 +379,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2c313825d94b65c4fad0beb70b17eaef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  packetTransmissionVisualizer: {fileID: 4927566021137766839, guid: 2689f6dce5f9d864e81773f62548be6a,
+  packetTransmissionVisualizer: {fileID: 8108054988325218977, guid: e8a44436bfcf1c14a8e69c437ca6ea92,
     type: 3}
-  transform: {fileID: 8796468799210436936}
   name: 

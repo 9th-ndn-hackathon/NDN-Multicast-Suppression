@@ -10,43 +10,32 @@ public class CircleGrowth : MonoBehaviour
     private float maxRadius = 100000;
     private float growthRate;
     private float lifeTime;
-
-    private float radiusGrowthPerGrowthInterval;
-    private float growthInterval;
     
     public LineRenderer line;
 
-    public void setParameters(Transform parentTransform, float growthRate, float lifeTime) 
-    {
-        this.gameObject.transform.SetParent(parentTransform, false);
+    private bool started = false;
 
+    public void setParameters(float growthRate, float lifeTime) 
+    {
         this.growthRate = growthRate;
         this.lifeTime = lifeTime;
        
         line.useWorldSpace = false;
         line.SetVertexCount(segments + 1);
-
-        // TODO: calculate radiusGrowthPerGrowthInterval from growthRate
-        // TODO: calculate growthInteral from growthRate
-        radiusGrowthPerGrowthInterval = .5f;
-        growthInterval = 1.0f / growthRate / Time.timeScale;
-    
     }
 
     public void startGrowth() {
-        StartCoroutine(GrowthRoutine());
         StartCoroutine(LifetimeCountdownRoutine());
+        started = true;
     }
 
-    IEnumerator GrowthRoutine()
+    public void Update() 
     {
-        CreatePoints();
-
-        while (radius < maxRadius)
+        if (!started) return;
+        if (radius < maxRadius)
         {
-            radius += radiusGrowthPerGrowthInterval;
+            radius += (growthRate * Time.deltaTime) ;
             CreatePoints();
-            yield return new WaitForSeconds(growthInterval);
         }
     }
 
@@ -73,4 +62,3 @@ public class CircleGrowth : MonoBehaviour
         }
     }
 }
-

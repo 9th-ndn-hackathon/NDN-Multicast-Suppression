@@ -21,6 +21,8 @@ public class NFDConsumer : MonoBehaviour
     int duplicateCount;
     bool suppressCurrentInterest = false;
 
+    private float propagationDelayConstant; 
+
     void Awake()
     {
         //Set name of node
@@ -34,6 +36,7 @@ public class NFDConsumer : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        propagationDelayConstant = 1000f * Time.timeScale;
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
         float startDelay = Random.Range(0, .1f * (1f / Time.timeScale));
@@ -153,8 +156,8 @@ public class NFDConsumer : MonoBehaviour
 
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-        logMessage("Waiting " + (distance / 1000f * (1 / Time.timeScale)));
-        StartCoroutine(ProcessInterestDelay(distance / 1000f * (1 / Time.timeScale), interest));
+        logMessage("Waiting " + calculatePropagationDelay(distance));
+        StartCoroutine(ProcessInterestDelay(calculatePropagationDelay(distance), interest));
     }
 
     void OnMulticastData(Packet data)
@@ -166,8 +169,8 @@ public class NFDConsumer : MonoBehaviour
 
         //Find the distance between sender and this node.  This is the propagation delay.
         float distance = Mathf.Abs(Vector3.Distance(data.sender.transform.position, gameObject.transform.position));
-        logMessage("Waiting " + (distance / 1000f * (1 / Time.timeScale)));
-        StartCoroutine(ProcessDataDelay(distance / 1000f * (1 / Time.timeScale), data));
+        logMessage("Waiting " + calculatePropagationDelay(distance));
+        StartCoroutine(ProcessDataDelay(calculatePropagationDelay(distance), data));
     }
 
     void logMessage(string message)
@@ -206,7 +209,7 @@ public class NFDConsumer : MonoBehaviour
 
     private void sendInterest(Packet interest) {
         broadcastRoot.BroadcastMessage("OnMulticastInterest", interest, SendMessageOptions.DontRequireReceiver);
-        emitPacketTransmissionVisual(1000.0f * (1f / Time.timeScale), 3f);
+        emitPacketTransmissionVisual(propagationDelayConstant, 3f);
     }
 
     private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
@@ -214,8 +217,12 @@ public class NFDConsumer : MonoBehaviour
         newTransmissionVisualizer.transform.SetParent(gameObject.transform);
         newTransmissionVisualizer.transform.localPosition = Vector3.zero;
         CircleGrowth growthScript = newTransmissionVisualizer.GetComponent<CircleGrowth>();
-        growthScript.setParameters(this.gameObject.transform, growthRate, lifeTime);
+        growthScript.setParameters(growthRate, lifeTime);
         growthScript.startGrowth();
+    }
+
+    private float calculatePropagationDelay(float distance) {
+        return distance / propagationDelayConstant;
     }
 
 }
