@@ -28,7 +28,7 @@ public class Metrics : MonoBehaviour
         int round = MulticastManager.getInstanceOf().currentRound;
         while(round < MulticastManager.getInstanceOf().interestGenerationCount)
         {
-            yield return new WaitForSeconds(MulticastManager.getInstanceOf().interestGenerationRate * (1f / Time.timeScale));
+            yield return new WaitForSeconds(MulticastManager.getInstanceOf().interestGenerationRate);// * (1f / Time.timeScale));
             interestsRound = currentCount;
             currentCount = 0;
             round += 1;

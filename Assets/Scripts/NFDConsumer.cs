@@ -24,7 +24,7 @@ public class NFDConsumer : NFDNode
     int duplicateCount;
     Dictionary<string, bool> suppressMap;
 
-    private float propagationDelayConstant; 
+
 
     void Awake()
     {
@@ -41,10 +41,9 @@ public class NFDConsumer : NFDNode
     {
         suppressMap = new Dictionary<string, bool>();
         dataRecv = new List<string>();
-        propagationDelayConstant = 1000f * Time.timeScale;
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
-        float startDelay = Random.Range(0, .1f * (1f / Time.timeScale));
+        float startDelay = Random.Range(0, .1f);// * (1f / Time.timeScale));
 
         StartCoroutine(DelayedStart(startDelay));
     }
@@ -68,12 +67,12 @@ public class NFDConsumer : NFDNode
             suppressMap.Add("/test/interest/" + count, false);
             if (checkQueue(message))
             {
-               // Debug.Log("Found in queue of " + name);
-                count += 1;
+               logMessage("Found in queue of " + name);
+
 
             }else if (dataRecv.Contains(message.name))
             {
-                //do nothing
+                logMessage("Data for " + name+ " already recv");
             }
             else
             {
@@ -83,7 +82,7 @@ public class NFDConsumer : NFDNode
             }
  
             count += 1;
-            yield return new WaitForSeconds(generationTime * (1f / Time.timeScale));
+            yield return new WaitForSeconds(generationTime);// * (1f / Time.timeScale));
         }
     }
 
@@ -94,6 +93,7 @@ public class NFDConsumer : NFDNode
             //clamp m_suppress
             m_supress = Mathf.Min(m_supress, MAX_SUPPRESS);
             float randomDelay = Random.Range(m_supress / 2, m_supress * 2);
+            //float randomDelay = Random.Range(0, m_supress);
             yield return new WaitForSeconds(randomDelay);
             if (!suppressMap[message.name])
             {
@@ -106,7 +106,6 @@ public class NFDConsumer : NFDNode
                 interestsSuppressed += 1;
             }
 
-            //clamp 
         }
         else
         {
@@ -144,11 +143,11 @@ public class NFDConsumer : NFDNode
 
     IEnumerator ListenRoutine(Packet message)
     {
-        yield return new WaitForSeconds(listenTime * (1f/Time.timeScale));
+        yield return new WaitForSeconds(listenTime);// * (1f/Time.timeScale));
         if (duplicateCount > 1)
             if (m_supress == 0)
             {
-                m_supress = 4f * 1/Time.timeScale;
+                m_supress = .1f;// * 1/Time.timeScale;
             }
             else
             {
@@ -167,10 +166,10 @@ public class NFDConsumer : NFDNode
             return;
         }
 
-        //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-        logMessage("Waiting " + calculatePropagationDelay(distance));
-        StartCoroutine(ProcessInterestDelay(calculatePropagationDelay(distance), interest));
+        //Abstracting away the AP and using typical propagation delays.
+        float delay = Random.Range(minPropDelay, maxPropDelay);// * 1/Time.timeScale;
+        logMessage("Waiting " + delay);
+        StartCoroutine(ProcessInterestDelay(delay, interest));
     }
 
     override public void OnMulticastData(Packet data)
@@ -181,9 +180,10 @@ public class NFDConsumer : NFDNode
         }
 
         //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(data.sender.transform.position, gameObject.transform.position));
-        logMessage("Waiting " + calculatePropagationDelay(distance));
-        StartCoroutine(ProcessDataDelay(calculatePropagationDelay(distance), data));
+        //Abstracting away the AP and using typical propagation delays.
+        float delay = Random.Range(minPropDelay, maxPropDelay);// * 1/Time.timeScale;
+        logMessage("Waiting " + delay);
+        StartCoroutine(ProcessDataDelay(delay, data));
     }
 
     void logMessage(string message)
@@ -222,7 +222,7 @@ public class NFDConsumer : NFDNode
 
     private void sendInterest(Packet interest) {
         broadcastRoot.BroadcastMessage("OnMulticastInterest", interest, SendMessageOptions.DontRequireReceiver);
-        emitPacketTransmissionVisual(propagationDelayConstant, 3f);
+        emitPacketTransmissionVisual(1000, 3f);
     }
 
     private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
@@ -234,8 +234,6 @@ public class NFDConsumer : NFDNode
         growthScript.startGrowth();
     }
 
-    private float calculatePropagationDelay(float distance) {
-        return distance / propagationDelayConstant;
-    }
+
 
 }

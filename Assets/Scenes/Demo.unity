@@ -2505,31 +2505,26 @@ PrefabInstance:
     - target: {fileID: 234085711529667759, guid: 13c3cc3e3a703cf4cbd4157069af0c5d,
         type: 3}
       propertyPath: m_textInfo.characterCount
-      value: 0
+      value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 234085711529667759, guid: 13c3cc3e3a703cf4cbd4157069af0c5d,
         type: 3}
       propertyPath: m_textInfo.spaceCount
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 234085711529667759, guid: 13c3cc3e3a703cf4cbd4157069af0c5d,
         type: 3}
       propertyPath: m_textInfo.wordCount
-      value: 0
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 234085711529667759, guid: 13c3cc3e3a703cf4cbd4157069af0c5d,
         type: 3}
       propertyPath: m_textInfo.lineCount
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 234085711529667759, guid: 13c3cc3e3a703cf4cbd4157069af0c5d,
         type: 3}
       propertyPath: m_textInfo.pageCount
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5708417065016984473, guid: 13c3cc3e3a703cf4cbd4157069af0c5d,
-        type: 3}
-      propertyPath: listenTime
       value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []

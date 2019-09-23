@@ -43,10 +43,9 @@ public class NFDProducer : NFDNode
         {
             return;
         }
-        
-        //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-        StartCoroutine(ProcessInterestDelay(calculatePropagationDelay(distance), interest));
+
+        float delay = Random.Range(minPropDelay, maxPropDelay);// * 1/Time.timeScale;
+        StartCoroutine(ProcessInterestDelay(delay, interest));
 
     }
 
@@ -68,7 +67,7 @@ public class NFDProducer : NFDNode
 
     private void sendData(Packet data) {
         broadcastRoot.BroadcastMessage("OnMulticastData", data, SendMessageOptions.DontRequireReceiver);
-        emitPacketTransmissionVisual(propagationDelayConstant, 3.0f);
+        emitPacketTransmissionVisual(1000, 3.0f);
     }
 
     private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
@@ -81,7 +80,4 @@ public class NFDProducer : NFDNode
 
     }
 
-    private float calculatePropagationDelay(float distance) {
-        return distance / propagationDelayConstant;
-    }
 }

@@ -41,7 +41,7 @@ public class MulticastManager : MonoBehaviour
         {
             currentRound += 1;
             roundsText.text = "Rounds: " + currentRound;
-            yield return new WaitForSeconds(generationTime * (1f / Time.timeScale));
+            yield return new WaitForSeconds(generationTime);// * (1f / Time.timeScale));
         }
        
 

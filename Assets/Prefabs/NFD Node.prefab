@@ -178,14 +178,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7dcdb169b4f752a498266268fb25a87e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  minPropDelay: 0.005
+  maxPropDelay: 0.1
   packetTransmissionVisualizer: {fileID: 4927566021137766839, guid: 2689f6dce5f9d864e81773f62548be6a,
     type: 3}
-  listenTime: 1
+  listenTime: 0.5
   m_supress: 0
   interestsSuppressed: 0
   name: 
   queueCount: 0
-  MAX_SUPPRESS: 32
+  MAX_SUPPRESS: 1
 --- !u!1 &8437549798844832183
 GameObject:
   m_ObjectHideFlags: 0
@@ -594,6 +596,16 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 3708960554314619038}
     m_Modifications:
+    - target: {fileID: 546348472535735387, guid: 817c5d22192c2a042b50a09aea85ce2d,
+        type: 3}
+      propertyPath: m_Name
+      value: Interests Suppressed Bar Variant
+      objectReference: {fileID: 0}
+    - target: {fileID: 546348472535735387, guid: 817c5d22192c2a042b50a09aea85ce2d,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3245863735407560646, guid: 817c5d22192c2a042b50a09aea85ce2d,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -647,16 +659,6 @@ PrefabInstance:
     - target: {fileID: 3245863735407560646, guid: 817c5d22192c2a042b50a09aea85ce2d,
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 546348472535735387, guid: 817c5d22192c2a042b50a09aea85ce2d,
-        type: 3}
-      propertyPath: m_Name
-      value: Interests Suppressed Bar Variant
-      objectReference: {fileID: 0}
-    - target: {fileID: 546348472535735387, guid: 817c5d22192c2a042b50a09aea85ce2d,
-        type: 3}
-      propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8527240476386158853, guid: 817c5d22192c2a042b50a09aea85ce2d,
