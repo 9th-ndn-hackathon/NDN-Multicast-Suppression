@@ -147,7 +147,7 @@ public class NFDConsumer : NFDNode
         if (duplicateCount > 1)
             if (m_supress == 0)
             {
-                m_supress = .1f;// * 1/Time.timeScale;
+                m_supress = .2f;// * 1/Time.timeScale;
             }
             else
             {
