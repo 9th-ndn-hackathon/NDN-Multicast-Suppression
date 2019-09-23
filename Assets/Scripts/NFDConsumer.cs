@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class NFDConsumer : MonoBehaviour
+public class NFDConsumer : NFDNode
 {
 
     public GameObject packetTransmissionVisualizer;
@@ -103,6 +103,7 @@ public class NFDConsumer : MonoBehaviour
             duplicateCount += 1;
         }
     }
+
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
     {
         yield return new WaitForSeconds(delay);
@@ -147,7 +148,7 @@ public class NFDConsumer : MonoBehaviour
         }
     }
 
-    void OnMulticastInterest(Packet interest)
+    override public void OnMulticastInterest(Packet interest)
     {
         if (interest.sender.name == gameObject.name)
         {
@@ -160,7 +161,7 @@ public class NFDConsumer : MonoBehaviour
         StartCoroutine(ProcessInterestDelay(calculatePropagationDelay(distance), interest));
     }
 
-    void OnMulticastData(Packet data)
+    override public void OnMulticastData(Packet data)
     {
         if (data.sender.name == gameObject.name)
         {

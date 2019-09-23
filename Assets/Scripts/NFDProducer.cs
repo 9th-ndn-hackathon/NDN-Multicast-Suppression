@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class NFDProducer : MonoBehaviour
+public class NFDProducer : NFDNode
 {
 
     public GameObject packetTransmissionVisualizer;
@@ -37,7 +37,7 @@ public class NFDProducer : MonoBehaviour
         sendData(data);
     }
 
-    void OnMulticastInterest(Packet interest)
+    override public void OnMulticastInterest(Packet interest)
     {
         if(interest.sender.name == gameObject.name)
         {
@@ -48,6 +48,11 @@ public class NFDProducer : MonoBehaviour
         float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
         StartCoroutine(ProcessInterestDelay(calculatePropagationDelay(distance), interest));
 
+    }
+
+    public override void OnMulticastData(Packet data)
+    {
+        //Do nothing
     }
 
     // Update is called once per frame
