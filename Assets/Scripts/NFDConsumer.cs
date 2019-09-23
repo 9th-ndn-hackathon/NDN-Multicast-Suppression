@@ -8,18 +8,21 @@ public class NFDConsumer : NFDNode
     public GameObject packetTransmissionVisualizer;
 
     GameObject broadcastRoot;
-    float listenTime;
+    public float listenTime;
     public float m_supress = 0F;
     public int interestsSuppressed = 0;
     public string name;
     Queue<Packet> incMulticastInterests;
     [SerializeField]
     int queueCount;
+    [SerializeField]
+    int MAX_SUPPRESS = 32;
+    List<string> dataRecv;
 
     //Current Interest wanting to be expressed.
     Packet currentInterest = null;
     int duplicateCount;
-    bool suppressCurrentInterest = false;
+    Dictionary<string, bool> suppressMap;
 
     private float propagationDelayConstant; 
 
@@ -36,11 +39,13 @@ public class NFDConsumer : NFDNode
     // Start is called before the first frame update
     void Start()
     {
+        suppressMap = new Dictionary<string, bool>();
+        dataRecv = new List<string>();
         propagationDelayConstant = 1000f * Time.timeScale;
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
         float startDelay = Random.Range(0, .1f * (1f / Time.timeScale));
-        listenTime = MulticastManager.getInstanceOf().listenTime;
+
         StartCoroutine(DelayedStart(startDelay));
     }
 
@@ -58,21 +63,25 @@ public class NFDConsumer : NFDNode
         while (count < interestMax)
         {
             Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
-            if (checkQueue(message))
-            {
-                Debug.Log("Found in queue of " + name);
-                count += 1;
-                yield return new WaitForSeconds(generationTime * (1f / Time.timeScale));
-                continue;
-            }
             currentInterest = message;
             duplicateCount = 0;
-            suppressCurrentInterest = false;
+            suppressMap.Add("/test/interest/" + count, false);
+            if (checkQueue(message))
+            {
+               // Debug.Log("Found in queue of " + name);
+                count += 1;
 
-            // Listen for the same interest and set supression time
-            StartCoroutine(ListenRoutine());
-            StartCoroutine(SuppressionRoutine(message));
-
+            }else if (dataRecv.Contains(message.name))
+            {
+                //do nothing
+            }
+            else
+            {
+                // Listen for the same interest and set supression time
+                StartCoroutine(ListenRoutine(message));
+                StartCoroutine(SuppressionRoutine(message));
+            }
+ 
             count += 1;
             yield return new WaitForSeconds(generationTime * (1f / Time.timeScale));
         }
@@ -82,9 +91,11 @@ public class NFDConsumer : NFDNode
     {
         if(m_supress > 0)
         {
-            float randomDelay = Random.Range(0, m_supress);
+            //clamp m_suppress
+            m_supress = Mathf.Min(m_supress, MAX_SUPPRESS);
+            float randomDelay = Random.Range(m_supress / 2, m_supress * 2);
             yield return new WaitForSeconds(randomDelay);
-            if (!suppressCurrentInterest)
+            if (!suppressMap[message.name])
             {
                 logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
                 sendInterest(message);
@@ -95,6 +106,7 @@ public class NFDConsumer : NFDNode
                 interestsSuppressed += 1;
             }
 
+            //clamp 
         }
         else
         {
@@ -116,35 +128,35 @@ public class NFDConsumer : NFDNode
         if(currentInterest != null && interest.name == currentInterest.name)
         {
             duplicateCount += 1;
-            suppressCurrentInterest = true;
+            suppressMap[interest.name] = true;
         }
     }
 
     IEnumerator ProcessDataDelay(float delay, Packet data)
     {
         yield return new WaitForSeconds(delay);
+        if (!dataRecv.Contains(data.name))
+        {
+            dataRecv.Add(data.name);
+        }
         logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
-    IEnumerator ListenRoutine()
+    IEnumerator ListenRoutine(Packet message)
     {
         yield return new WaitForSeconds(listenTime * (1f/Time.timeScale));
         if (duplicateCount > 1)
             if (m_supress == 0)
             {
-                m_supress = .05f * 1/Time.timeScale;
+                m_supress = 4f * 1/Time.timeScale;
             }
             else
             {
                 m_supress = m_supress * 2;
             }
-        else if (duplicateCount == 1 && !suppressCurrentInterest)
+        else if (duplicateCount == 1 && !suppressMap[message.name])
         {
             m_supress = 0;
-        }
-        else
-        {
-            yield break;
         }
     }
 
@@ -176,7 +188,7 @@ public class NFDConsumer : NFDNode
 
     void logMessage(string message)
     {
-        Debug.Log(name + ": " + message);
+        //Debug.Log(name + ": " + message);
     }
 
 

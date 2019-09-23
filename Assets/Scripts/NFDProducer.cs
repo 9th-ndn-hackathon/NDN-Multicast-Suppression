@@ -63,7 +63,7 @@ public class NFDProducer : NFDNode
 
     void logMessage(string message) 
     {
-        Debug.Log(name + ": " + message);
+        //Debug.Log(name + ": " + message);
     }
 
     private void sendData(Packet data) {
