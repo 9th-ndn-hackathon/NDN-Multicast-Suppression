@@ -52,7 +52,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2599501602883586611
 RectTransform:
   m_ObjectHideFlags: 0
@@ -178,8 +178,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7dcdb169b4f752a498266268fb25a87e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  minPropDelay: 0.005
-  maxPropDelay: 0.1
+  minPropDelay: 0.01
+  maxPropDelay: 0.05
   packetTransmissionVisualizer: {fileID: 4927566021137766839, guid: 2689f6dce5f9d864e81773f62548be6a,
     type: 3}
   listenTime: 0.5
@@ -187,7 +187,7 @@ MonoBehaviour:
   interestsSuppressed: 0
   name: 
   queueCount: 0
-  MAX_SUPPRESS: 1
+  MAX_SUPPRESS: 4
 --- !u!1 &8437549798844832183
 GameObject:
   m_ObjectHideFlags: 0

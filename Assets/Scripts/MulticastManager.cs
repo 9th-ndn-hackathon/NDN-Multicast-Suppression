@@ -7,7 +7,6 @@ public class MulticastManager : MonoBehaviour
 {
     public float interestGenerationRate;
     public int interestGenerationCount;
-    public float listenTime;
     private List<NFDConsumer> nfdNodes;
     private static MulticastManager instance;
     public Text roundsText;

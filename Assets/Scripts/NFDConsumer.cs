@@ -19,8 +19,6 @@ public class NFDConsumer : NFDNode
     int MAX_SUPPRESS = 32;
     List<string> dataRecv;
 
-    //Current Interest wanting to be expressed.
-    Packet currentInterest = null;
     int duplicateCount;
     Dictionary<string, bool> suppressMap;
 
@@ -43,14 +41,6 @@ public class NFDConsumer : NFDNode
         dataRecv = new List<string>();
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
-        float startDelay = Random.Range(0, .1f);// * (1f / Time.timeScale));
-
-        StartCoroutine(DelayedStart(startDelay));
-    }
-
-    IEnumerator DelayedStart(float waitTime)
-    {
-        yield return new WaitForSeconds(waitTime);
         StartCoroutine(GenerationRoutine());
     }
 
@@ -61,8 +51,10 @@ public class NFDConsumer : NFDNode
         int count = 0;
         while (count < interestMax)
         {
+            float startDelay = Random.Range(0, .025f);
+            yield return new WaitForSeconds(startDelay);
+
             Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
-            currentInterest = message;
             duplicateCount = 0;
             suppressMap.Add("/test/interest/" + count, false);
             if (checkQueue(message))
@@ -82,7 +74,7 @@ public class NFDConsumer : NFDNode
             }
  
             count += 1;
-            yield return new WaitForSeconds(generationTime);// * (1f / Time.timeScale));
+            yield return new WaitForSeconds(generationTime);
         }
     }
 
@@ -92,8 +84,8 @@ public class NFDConsumer : NFDNode
         {
             //clamp m_suppress
             m_supress = Mathf.Min(m_supress, MAX_SUPPRESS);
-            float randomDelay = Random.Range(m_supress / 2, m_supress * 2);
-            //float randomDelay = Random.Range(0, m_supress);
+            //float randomDelay = Random.Range(m_supress / 2, m_supress * 2);
+            float randomDelay = Random.Range(0, m_supress);
             yield return new WaitForSeconds(randomDelay);
             if (!suppressMap[message.name])
             {
@@ -124,7 +116,7 @@ public class NFDConsumer : NFDNode
         enqueue(interest);
 
         //Check if it is a duplicate of the interest we are currently interested in.
-        if(currentInterest != null && interest.name == currentInterest.name)
+        if(suppressMap.ContainsKey(interest.name))
         {
             duplicateCount += 1;
             suppressMap[interest.name] = true;
@@ -143,15 +135,15 @@ public class NFDConsumer : NFDNode
 
     IEnumerator ListenRoutine(Packet message)
     {
-        yield return new WaitForSeconds(listenTime);// * (1f/Time.timeScale));
+        yield return new WaitForSeconds(listenTime);
         if (duplicateCount > 1)
             if (m_supress == 0)
             {
-                m_supress = .2f;// * 1/Time.timeScale;
+                m_supress = .5f;
             }
             else
             {
-                m_supress = m_supress * 2;
+                m_supress = Mathf.Clamp(m_supress * 2, 0, MAX_SUPPRESS);
             }
         else if (duplicateCount == 1 && !suppressMap[message.name])
         {
@@ -167,7 +159,7 @@ public class NFDConsumer : NFDNode
         }
 
         //Abstracting away the AP and using typical propagation delays.
-        float delay = Random.Range(minPropDelay, maxPropDelay);// * 1/Time.timeScale;
+        float delay = Random.Range(minPropDelay, maxPropDelay);
         logMessage("Waiting " + delay);
         StartCoroutine(ProcessInterestDelay(delay, interest));
     }
@@ -181,7 +173,7 @@ public class NFDConsumer : NFDNode
 
         //Find the distance between sender and this node.  This is the propagation delay.
         //Abstracting away the AP and using typical propagation delays.
-        float delay = Random.Range(minPropDelay, maxPropDelay);// * 1/Time.timeScale;
+        float delay = Random.Range(minPropDelay, maxPropDelay);
         logMessage("Waiting " + delay);
         StartCoroutine(ProcessDataDelay(delay, data));
     }

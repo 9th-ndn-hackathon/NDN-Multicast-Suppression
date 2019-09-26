@@ -7,6 +7,7 @@ public class Metrics : MonoBehaviour
   
     public int noInterests = 0;
     public int interestsRound = 0;
+    public int roundsWithAWinner = 0;
 
     int currentCount = 0;
     // Start is called before the first frame update
@@ -26,14 +27,21 @@ public class Metrics : MonoBehaviour
     {
 
         int round = MulticastManager.getInstanceOf().currentRound;
+        int[] rounds = new int[MulticastManager.getInstanceOf().interestGenerationCount];
+        int i = 0;
         while(round < MulticastManager.getInstanceOf().interestGenerationCount)
         {
-            yield return new WaitForSeconds(MulticastManager.getInstanceOf().interestGenerationRate);// * (1f / Time.timeScale));
+            yield return new WaitForSeconds(MulticastManager.getInstanceOf().interestGenerationRate);
             interestsRound = currentCount;
+            if(interestsRound == 1)
+            {
+                roundsWithAWinner += 1;
+            }
+            rounds[i++] = interestsRound;
             currentCount = 0;
             round += 1;
         }
-
+        
     }
     void OnMulticastInterest(Packet interest)
     {
