@@ -22,13 +22,15 @@ public class NFDConsumer : NFDNode
     int interest_window;
     [SerializeField]
     int latestSequence = 0;
-
+    [SerializeField]
+    float randomDelay = 0f;
     Dictionary<string, DuplicateMapEntry> duplicateMap;
     Dictionary<string, bool> suppressMap;
 
     private class DuplicateMapEntry
     {
         public int count;
+        public bool wasSent;
         public float entryTime;
     }
 
@@ -45,7 +47,7 @@ public class NFDConsumer : NFDNode
     // Start is called before the first frame update
     void Start()
     {
-        interest_window = Random.Range(2, 10);
+        interest_window = 5;// Random.Range(2, 10);
         suppressMap = new Dictionary<string, bool>();
         duplicateMap = new Dictionary<string, DuplicateMapEntry>();
         dataRecv = new List<string>();
@@ -56,21 +58,22 @@ public class NFDConsumer : NFDNode
 
     IEnumerator GenerationRoutine()
     {
+        float randomStartDelay = Random.Range(0f, .1f);
+        yield return new WaitForSeconds(randomStartDelay);
+
         float generationTime = MulticastManager.getInstanceOf().interestGenerationRate;
         int interestMax = MulticastManager.getInstanceOf().interestGenerationCount;
         int count = 0;
         StartCoroutine(ListenRoutine());
         while (count < interestMax)
         {
-            float startDelay = Random.Range(0, .025f);
-            yield return new WaitForSeconds(startDelay);
-
             for(int i = 0; i < interest_window; i++)
             {
                 Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
                 DuplicateMapEntry entry = new DuplicateMapEntry
                 {
                     count = 0,
+                    wasSent = false,
                     entryTime = Time.time
                 };
                 duplicateMap.Add(message.name, entry);
@@ -78,17 +81,27 @@ public class NFDConsumer : NFDNode
                 if (checkQueue(message))
                 {
                     logMessage("Found in queue of " + name);
-
-
+                    interestsSuppressed += 1;
+                    duplicateMap[message.name].count += 1;
                 }
                 else if (dataRecv.Contains(message.name))
                 {
                     logMessage("Data for " + name + " already recv");
+                    interestsSuppressed += 1;
                 }
                 else
                 {
-                    // Listen for the same interest and set supression time
-                    StartCoroutine(SuppressionRoutine(message));
+                    if (m_supress > 0)
+                    {
+
+                        StartCoroutine(SuppressionRoutine(message));
+                    }
+                    else
+                    {
+                        logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
+                        sendInterest(message);
+                        duplicateMap[message.name].count += 1;
+                    }
                 }
 
                 count += 1;
@@ -101,31 +114,20 @@ public class NFDConsumer : NFDNode
 
     IEnumerator SuppressionRoutine(Packet message)
     {
-        if(m_supress > 0)
+        
+        yield return new WaitForSeconds(randomDelay);
+        if (!suppressMap[message.name])
         {
-            //clamp m_suppress
-            m_supress = Mathf.Min(m_supress, MAX_SUPPRESS);
-            //float randomDelay = Random.Range(m_supress / 2, m_supress * 2);
-            float randomDelay = Random.Range(0, m_supress);
-            yield return new WaitForSeconds(randomDelay);
-            if (!suppressMap[message.name])
-            {
-                logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
-                sendInterest(message);
-                duplicateMap[message.name].count += 1;
-            }
-            else
-            {
-                interestsSuppressed += 1;
-            }
-
+            logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
+            sendInterest(message);
+            duplicateMap[message.name].count += 1;
+            duplicateMap[message.name].wasSent = true;
         }
         else
         {
-            logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
-            sendInterest(message);
-            duplicateMap[message.name].count += 1;
+            interestsSuppressed += 1;
         }
+
     }
 
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
@@ -161,19 +163,47 @@ public class NFDConsumer : NFDNode
             //Listen for duplicates for this amount of time.
             yield return new WaitForSeconds(listenTime);
 
-            //Get the average duplicate counts over the window
-            int duplicateCount = 0;
-            foreach(string key in duplicateMap.Keys)
+            //Remove old duplicate map entries
+            List<string> removals = new List<string>();
+            List<int> counts = new List<int>();
+            foreach (string key in duplicateMap.Keys)
             {
-                duplicateCount += duplicateMap[key].count;
+                if (duplicateMap[key].entryTime + listenTime < Time.time)
+                {
+                    counts.Add(duplicateMap[key].count);
+                    removals.Add(key);
+                }
             }
-            if(duplicateMap.Keys.Count > 0)
+            int countOnes = 0;
+            foreach (string name in removals)
             {
-                duplicateCount /= duplicateMap.Keys.Count;
+                if(duplicateMap[name].count == 1 && duplicateMap[name].wasSent)
+                {
+                    countOnes += 1;
+                }
+                duplicateMap.Remove(name);
             }
+
+            float percentage = 0f;
+            if(countOnes > 0)
+            {
+                percentage = (float)countOnes / counts.Count;
+            }
+            logMessage("Win percentage " + percentage);
+
             
-            //Start with 500ms suppression,  then double it up to MAX_SUPPRESS
-            if (duplicateCount > 1)
+            if (percentage > .5f)
+            {
+                //We heard our own interest only.  Declare ourselves to be the winner.
+                m_supress = 0;
+            }
+            else if(removals.Count == 0)
+            {
+                //do nothing
+            }
+            else
+            {
+                //Start with 500ms suppression,  then double it up to MAX_SUPPRESS
                 if (m_supress == 0)
                 {
                     m_supress = .5f;
@@ -182,24 +212,12 @@ public class NFDConsumer : NFDNode
                 {
                     m_supress = Mathf.Clamp(m_supress * 2, 0, MAX_SUPPRESS);
                 }
-            else if (duplicateCount == 1)
-            {
-                //We heard our own interest only.  Declare ourselves to be the winner.
-                m_supress = 0;
             }
 
-            //Remove old duplicate map entries
-            List<string> removals = new List<string>();
-            foreach (string key in duplicateMap.Keys)
-            {
-                if(duplicateMap[key].entryTime + listenTime < Time.time)
-                {
-                    removals.Add(key);
-                }
-            }
-            foreach(string name in removals) {
-                duplicateMap.Remove(name);
-            }
+            //Choose new randomDelay
+            m_supress = Mathf.Min(m_supress, MAX_SUPPRESS);
+            //float randomDelay = Random.Range(m_supress / 2, m_supress * 2);
+            randomDelay = Random.Range(0, m_supress);
 
         }
     }
@@ -213,7 +231,6 @@ public class NFDConsumer : NFDNode
 
         //Abstracting away the AP and using typical propagation delays.
         float delay = Random.Range(minPropDelay, maxPropDelay);
-        logMessage("Waiting " + delay);
         StartCoroutine(ProcessInterestDelay(delay, interest));
     }
 
@@ -226,13 +243,12 @@ public class NFDConsumer : NFDNode
 
         //Abstracting away the AP and using typical propagation delays.
         float delay = Random.Range(minPropDelay, maxPropDelay);
-        logMessage("Waiting " + delay);
         StartCoroutine(ProcessDataDelay(delay, data));
     }
 
     void logMessage(string message)
     {
-        //Debug.Log(name + ": " + message);
+        //print(name + ": " + message);
     }
 
 

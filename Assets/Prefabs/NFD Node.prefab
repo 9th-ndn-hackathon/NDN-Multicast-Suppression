@@ -188,6 +188,9 @@ MonoBehaviour:
   name: 
   queueCount: 0
   MAX_SUPPRESS: 4
+  interest_window: 0
+  latestSequence: 0
+  randomDelay: 0
 --- !u!1 &8437549798844832183
 GameObject:
   m_ObjectHideFlags: 0
