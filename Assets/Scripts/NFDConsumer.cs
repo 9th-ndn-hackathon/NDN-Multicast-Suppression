@@ -2,26 +2,37 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class NFDConsumer : MonoBehaviour
+public class NFDConsumer : NFDNode
 {
 
     public GameObject packetTransmissionVisualizer;
 
     GameObject broadcastRoot;
-    float listenTime;
+    public float listenTime;
     public float m_supress = 0F;
     public int interestsSuppressed = 0;
     public string name;
     Queue<Packet> incMulticastInterests;
     [SerializeField]
     int queueCount;
+    [SerializeField]
+    int MAX_SUPPRESS;
+    List<string> dataRecv;
+    [SerializeField]
+    int interest_window;
+    [SerializeField]
+    int latestSequence = 0;
+    [SerializeField]
+    float randomDelay = 0f;
+    Dictionary<string, DuplicateMapEntry> duplicateMap;
+    Dictionary<string, bool> suppressMap;
 
-    //Current Interest wanting to be expressed.
-    Packet currentInterest = null;
-    int duplicateCount;
-    bool suppressCurrentInterest = false;
-
-    private float propagationDelayConstant; 
+    private class DuplicateMapEntry
+    {
+        public int count;
+        public bool wasSent;
+        public float entryTime;
+    }
 
     void Awake()
     {
@@ -36,73 +47,89 @@ public class NFDConsumer : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        propagationDelayConstant = 1000f * Time.timeScale;
+        interest_window = 5;// Random.Range(2, 10);
+        suppressMap = new Dictionary<string, bool>();
+        duplicateMap = new Dictionary<string, DuplicateMapEntry>();
+        dataRecv = new List<string>();
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
-        float startDelay = Random.Range(0, .1f * (1f / Time.timeScale));
-        listenTime = MulticastManager.getInstanceOf().listenTime;
-        StartCoroutine(DelayedStart(startDelay));
-    }
-
-    IEnumerator DelayedStart(float waitTime)
-    {
-        yield return new WaitForSeconds(waitTime);
         StartCoroutine(GenerationRoutine());
     }
 
     IEnumerator GenerationRoutine()
     {
+        float randomStartDelay = Random.Range(0f, .1f);
+        yield return new WaitForSeconds(randomStartDelay);
+
         float generationTime = MulticastManager.getInstanceOf().interestGenerationRate;
         int interestMax = MulticastManager.getInstanceOf().interestGenerationCount;
         int count = 0;
+        StartCoroutine(ListenRoutine());
         while (count < interestMax)
         {
-            Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
-            if (checkQueue(message))
+            for(int i = 0; i < interest_window; i++)
             {
-                Debug.Log("Found in queue of " + name);
+                Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
+                DuplicateMapEntry entry = new DuplicateMapEntry
+                {
+                    count = 0,
+                    wasSent = false,
+                    entryTime = Time.time
+                };
+                duplicateMap.Add(message.name, entry);
+                suppressMap.Add(message.name, false);
+                if (checkQueue(message))
+                {
+                    logMessage("Found in queue of " + name);
+                    interestsSuppressed += 1;
+                    duplicateMap[message.name].count += 1;
+                }
+                else if (dataRecv.Contains(message.name))
+                {
+                    logMessage("Data for " + name + " already recv");
+                    interestsSuppressed += 1;
+                }
+                else
+                {
+                    if (m_supress > 0)
+                    {
+
+                        StartCoroutine(SuppressionRoutine(message));
+                    }
+                    else
+                    {
+                        logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
+                        sendInterest(message);
+                        duplicateMap[message.name].count += 1;
+                    }
+                }
+
                 count += 1;
-                yield return new WaitForSeconds(generationTime * (1f / Time.timeScale));
-                continue;
+                latestSequence = count;
             }
-            currentInterest = message;
-            duplicateCount = 0;
-            suppressCurrentInterest = false;
 
-            // Listen for the same interest and set supression time
-            StartCoroutine(ListenRoutine());
-            StartCoroutine(SuppressionRoutine(message));
-
-            count += 1;
-            yield return new WaitForSeconds(generationTime * (1f / Time.timeScale));
+            yield return new WaitForSeconds(generationTime);
         }
     }
 
     IEnumerator SuppressionRoutine(Packet message)
     {
-        if(m_supress > 0)
+        
+        yield return new WaitForSeconds(randomDelay);
+        if (!suppressMap[message.name])
         {
-            float randomDelay = Random.Range(0, m_supress);
-            yield return new WaitForSeconds(randomDelay);
-            if (!suppressCurrentInterest)
-            {
-                logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
-                sendInterest(message);
-                duplicateCount += 1;
-            }
-            else
-            {
-                interestsSuppressed += 1;
-            }
-
+            logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
+            sendInterest(message);
+            duplicateMap[message.name].count += 1;
+            duplicateMap[message.name].wasSent = true;
         }
         else
         {
-            logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
-            sendInterest(message);
-            duplicateCount += 1;
+            interestsSuppressed += 1;
         }
+
     }
+
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
     {
         yield return new WaitForSeconds(delay);
@@ -112,70 +139,116 @@ public class NFDConsumer : MonoBehaviour
         enqueue(interest);
 
         //Check if it is a duplicate of the interest we are currently interested in.
-        if(currentInterest != null && interest.name == currentInterest.name)
+        if(duplicateMap.ContainsKey(interest.name))
         {
-            duplicateCount += 1;
-            suppressCurrentInterest = true;
+            duplicateMap[interest.name].count += 1;
+            suppressMap[interest.name] = true;
         }
     }
 
     IEnumerator ProcessDataDelay(float delay, Packet data)
     {
         yield return new WaitForSeconds(delay);
+        if (!dataRecv.Contains(data.name))
+        {
+            dataRecv.Add(data.name);
+        }
         logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
     IEnumerator ListenRoutine()
     {
-        yield return new WaitForSeconds(listenTime * (1f/Time.timeScale));
-        if (duplicateCount > 1)
-            if (m_supress == 0)
+        while (true)
+        {
+            //Listen for duplicates for this amount of time.
+            yield return new WaitForSeconds(listenTime);
+
+            //Remove old duplicate map entries
+            List<string> removals = new List<string>();
+            List<int> counts = new List<int>();
+            foreach (string key in duplicateMap.Keys)
             {
-                m_supress = .05f * 1/Time.timeScale;
+                if (duplicateMap[key].entryTime + listenTime < Time.time)
+                {
+                    counts.Add(duplicateMap[key].count);
+                    removals.Add(key);
+                }
+            }
+            int countOnes = 0;
+            foreach (string name in removals)
+            {
+                if(duplicateMap[name].count == 1 && duplicateMap[name].wasSent)
+                {
+                    countOnes += 1;
+                }
+                duplicateMap.Remove(name);
+            }
+
+            float percentage = 0f;
+            if(countOnes > 0)
+            {
+                percentage = (float)countOnes / counts.Count;
+            }
+            logMessage("Win percentage " + percentage);
+
+            
+            if (percentage > .5f)
+            {
+                //We heard our own interest only.  Declare ourselves to be the winner.
+                m_supress = 0;
+            }
+            else if(removals.Count == 0)
+            {
+                //do nothing
             }
             else
             {
-                m_supress = m_supress * 2;
+                //Start with 500ms suppression,  then double it up to MAX_SUPPRESS
+                if (m_supress == 0)
+                {
+                    m_supress = .5f;
+                }
+                else
+                {
+                    m_supress = Mathf.Clamp(m_supress * 2, 0, MAX_SUPPRESS);
+                }
             }
-        else if (duplicateCount == 1 && !suppressCurrentInterest)
-        {
-            m_supress = 0;
-        }
-        else
-        {
-            yield break;
+
+            //Choose new randomDelay
+            m_supress = Mathf.Min(m_supress, MAX_SUPPRESS);
+            //float randomDelay = Random.Range(m_supress / 2, m_supress * 2);
+            randomDelay = Random.Range(0, m_supress);
+
         }
     }
 
-    void OnMulticastInterest(Packet interest)
+    override public void OnMulticastInterest(Packet interest)
     {
         if (interest.sender.name == gameObject.name)
         {
             return;
         }
 
-        //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(interest.sender.transform.position, gameObject.transform.position));
-        logMessage("Waiting " + calculatePropagationDelay(distance));
-        StartCoroutine(ProcessInterestDelay(calculatePropagationDelay(distance), interest));
+        //Abstracting away the AP and using typical propagation delays.
+        float delay = Random.Range(minPropDelay, maxPropDelay);
+        StartCoroutine(ProcessInterestDelay(delay, interest));
     }
 
-    void OnMulticastData(Packet data)
+    override public void OnMulticastData(Packet data)
     {
         if (data.sender.name == gameObject.name)
         {
             return;
         }
 
-        //Find the distance between sender and this node.  This is the propagation delay.
-        float distance = Mathf.Abs(Vector3.Distance(data.sender.transform.position, gameObject.transform.position));
-        logMessage("Waiting " + calculatePropagationDelay(distance));
-        StartCoroutine(ProcessDataDelay(calculatePropagationDelay(distance), data));
+        //Abstracting away the AP and using typical propagation delays.
+        float delay = Random.Range(minPropDelay, maxPropDelay);
+        StartCoroutine(ProcessDataDelay(delay, data));
     }
 
     void logMessage(string message)
     {
-        Debug.Log(name + ": " + message);
+        //print(name + ": " + message);
     }
 
 
@@ -192,6 +265,9 @@ public class NFDConsumer : MonoBehaviour
 
     bool checkQueue(Packet interest)
     {
+        //Check the incoming interest queue.  Currently there is no set limit
+        //however in the proper implementation there would be a limit.
+        //This queue should not be very large as we don't want unsatisfied interests in it.
         bool inQueue = false;
         if (incMulticastInterests.Count != 0)
         {
@@ -209,7 +285,7 @@ public class NFDConsumer : MonoBehaviour
 
     private void sendInterest(Packet interest) {
         broadcastRoot.BroadcastMessage("OnMulticastInterest", interest, SendMessageOptions.DontRequireReceiver);
-        emitPacketTransmissionVisual(propagationDelayConstant, 3f);
+        emitPacketTransmissionVisual(1000, 3f);
     }
 
     private void emitPacketTransmissionVisual(float growthRate, float lifeTime) {
@@ -221,8 +297,6 @@ public class NFDConsumer : MonoBehaviour
         growthScript.startGrowth();
     }
 
-    private float calculatePropagationDelay(float distance) {
-        return distance / propagationDelayConstant;
-    }
+
 
 }
