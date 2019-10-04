@@ -22,6 +22,8 @@ public class CircleGrowth : MonoBehaviour
        
         line.useWorldSpace = false;
         line.SetVertexCount(segments + 1);
+        line.startWidth = 1.0f;
+        line.endWidth = 1.0f;
     }
 
     public void startGrowth() {

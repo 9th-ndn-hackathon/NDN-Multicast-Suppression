@@ -16,13 +16,21 @@ public class NFDConsumer : NFDNode
     [SerializeField]
     int queueCount;
     [SerializeField]
-    int MAX_SUPPRESS = 32;
+    int MAX_SUPPRESS;
     List<string> dataRecv;
+    [SerializeField]
+    int interest_window;
+    [SerializeField]
+    int latestSequence = 0;
 
-    int duplicateCount;
+    Dictionary<string, DuplicateMapEntry> duplicateMap;
     Dictionary<string, bool> suppressMap;
 
-
+    private class DuplicateMapEntry
+    {
+        public int count;
+        public float entryTime;
+    }
 
     void Awake()
     {
@@ -37,7 +45,9 @@ public class NFDConsumer : NFDNode
     // Start is called before the first frame update
     void Start()
     {
+        interest_window = Random.Range(2, 10);
         suppressMap = new Dictionary<string, bool>();
+        duplicateMap = new Dictionary<string, DuplicateMapEntry>();
         dataRecv = new List<string>();
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
@@ -49,31 +59,42 @@ public class NFDConsumer : NFDNode
         float generationTime = MulticastManager.getInstanceOf().interestGenerationRate;
         int interestMax = MulticastManager.getInstanceOf().interestGenerationCount;
         int count = 0;
+        StartCoroutine(ListenRoutine());
         while (count < interestMax)
         {
             float startDelay = Random.Range(0, .025f);
             yield return new WaitForSeconds(startDelay);
 
-            Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
-            duplicateCount = 0;
-            suppressMap.Add("/test/interest/" + count, false);
-            if (checkQueue(message))
+            for(int i = 0; i < interest_window; i++)
             {
-               logMessage("Found in queue of " + name);
+                Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
+                DuplicateMapEntry entry = new DuplicateMapEntry
+                {
+                    count = 0,
+                    entryTime = Time.time
+                };
+                duplicateMap.Add(message.name, entry);
+                suppressMap.Add(message.name, false);
+                if (checkQueue(message))
+                {
+                    logMessage("Found in queue of " + name);
 
 
-            }else if (dataRecv.Contains(message.name))
-            {
-                logMessage("Data for " + name+ " already recv");
+                }
+                else if (dataRecv.Contains(message.name))
+                {
+                    logMessage("Data for " + name + " already recv");
+                }
+                else
+                {
+                    // Listen for the same interest and set supression time
+                    StartCoroutine(SuppressionRoutine(message));
+                }
+
+                count += 1;
+                latestSequence = count;
             }
-            else
-            {
-                // Listen for the same interest and set supression time
-                StartCoroutine(ListenRoutine(message));
-                StartCoroutine(SuppressionRoutine(message));
-            }
- 
-            count += 1;
+
             yield return new WaitForSeconds(generationTime);
         }
     }
@@ -91,7 +112,7 @@ public class NFDConsumer : NFDNode
             {
                 logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
                 sendInterest(message);
-                duplicateCount += 1;
+                duplicateMap[message.name].count += 1;
             }
             else
             {
@@ -103,7 +124,7 @@ public class NFDConsumer : NFDNode
         {
             logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
             sendInterest(message);
-            duplicateCount += 1;
+            duplicateMap[message.name].count += 1;
         }
     }
 
@@ -116,9 +137,9 @@ public class NFDConsumer : NFDNode
         enqueue(interest);
 
         //Check if it is a duplicate of the interest we are currently interested in.
-        if(suppressMap.ContainsKey(interest.name))
+        if(duplicateMap.ContainsKey(interest.name))
         {
-            duplicateCount += 1;
+            duplicateMap[interest.name].count += 1;
             suppressMap[interest.name] = true;
         }
     }
@@ -133,21 +154,53 @@ public class NFDConsumer : NFDNode
         logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
-    IEnumerator ListenRoutine(Packet message)
+    IEnumerator ListenRoutine()
     {
-        yield return new WaitForSeconds(listenTime);
-        if (duplicateCount > 1)
-            if (m_supress == 0)
-            {
-                m_supress = .5f;
-            }
-            else
-            {
-                m_supress = Mathf.Clamp(m_supress * 2, 0, MAX_SUPPRESS);
-            }
-        else if (duplicateCount == 1 && !suppressMap[message.name])
+        while (true)
         {
-            m_supress = 0;
+            //Listen for duplicates for this amount of time.
+            yield return new WaitForSeconds(listenTime);
+
+            //Get the average duplicate counts over the window
+            int duplicateCount = 0;
+            foreach(string key in duplicateMap.Keys)
+            {
+                duplicateCount += duplicateMap[key].count;
+            }
+            if(duplicateMap.Keys.Count > 0)
+            {
+                duplicateCount /= duplicateMap.Keys.Count;
+            }
+            
+            //Start with 500ms suppression,  then double it up to MAX_SUPPRESS
+            if (duplicateCount > 1)
+                if (m_supress == 0)
+                {
+                    m_supress = .5f;
+                }
+                else
+                {
+                    m_supress = Mathf.Clamp(m_supress * 2, 0, MAX_SUPPRESS);
+                }
+            else if (duplicateCount == 1)
+            {
+                //We heard our own interest only.  Declare ourselves to be the winner.
+                m_supress = 0;
+            }
+
+            //Remove old duplicate map entries
+            List<string> removals = new List<string>();
+            foreach (string key in duplicateMap.Keys)
+            {
+                if(duplicateMap[key].entryTime + listenTime < Time.time)
+                {
+                    removals.Add(key);
+                }
+            }
+            foreach(string name in removals) {
+                duplicateMap.Remove(name);
+            }
+
         }
     }
 
@@ -171,7 +224,6 @@ public class NFDConsumer : NFDNode
             return;
         }
 
-        //Find the distance between sender and this node.  This is the propagation delay.
         //Abstracting away the AP and using typical propagation delays.
         float delay = Random.Range(minPropDelay, maxPropDelay);
         logMessage("Waiting " + delay);
@@ -197,6 +249,9 @@ public class NFDConsumer : NFDNode
 
     bool checkQueue(Packet interest)
     {
+        //Check the incoming interest queue.  Currently there is no set limit
+        //however in the proper implementation there would be a limit.
+        //This queue should not be very large as we don't want unsatisfied interests in it.
         bool inQueue = false;
         if (incMulticastInterests.Count != 0)
         {
