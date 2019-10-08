@@ -24,6 +24,8 @@ public class NFDConsumer : NFDNode
     int latestSequence = 0;
     [SerializeField]
     float randomDelay = 0f;
+    [SerializeField]
+    bool showLogs = false;
     Dictionary<string, DuplicateMapEntry> duplicateMap;
     Dictionary<string, bool> suppressMap;
 
@@ -31,6 +33,7 @@ public class NFDConsumer : NFDNode
     {
         public int count;
         public bool wasSent;
+        public bool sentBeforeDuplicates;
         public float entryTime;
     }
 
@@ -58,7 +61,7 @@ public class NFDConsumer : NFDNode
 
     IEnumerator GenerationRoutine()
     {
-        float randomStartDelay = Random.Range(0f, .1f);
+        float randomStartDelay = Random.Range(0f, .25f);
         yield return new WaitForSeconds(randomStartDelay);
 
         float generationTime = MulticastManager.getInstanceOf().interestGenerationRate;
@@ -74,13 +77,14 @@ public class NFDConsumer : NFDNode
                 {
                     count = 0,
                     wasSent = false,
+                    sentBeforeDuplicates = false,
                     entryTime = Time.time
                 };
                 duplicateMap.Add(message.name, entry);
                 suppressMap.Add(message.name, false);
                 if (checkQueue(message))
                 {
-                    logMessage("Found in queue of " + name);
+                    logMessage("Found in queue:" + message.name);
                     interestsSuppressed += 1;
                     duplicateMap[message.name].count += 1;
                 }
@@ -101,6 +105,8 @@ public class NFDConsumer : NFDNode
                         logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
                         sendInterest(message);
                         duplicateMap[message.name].count += 1;
+                        duplicateMap[message.name].wasSent = true;
+                        duplicateMap[message.name].sentBeforeDuplicates = true;
                     }
                 }
 
@@ -122,6 +128,10 @@ public class NFDConsumer : NFDNode
             sendInterest(message);
             duplicateMap[message.name].count += 1;
             duplicateMap[message.name].wasSent = true;
+            if(duplicateMap[message.name].count == 1)
+            {
+                duplicateMap[message.name].sentBeforeDuplicates = true;
+            }
         }
         else
         {
@@ -153,7 +163,7 @@ public class NFDConsumer : NFDNode
         {
             dataRecv.Add(data.name);
         }
-        logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
+        //logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
     IEnumerator ListenRoutine()
@@ -174,20 +184,20 @@ public class NFDConsumer : NFDNode
                     removals.Add(key);
                 }
             }
-            int countOnes = 0;
+            int countWins = 0;
             foreach (string name in removals)
             {
-                if(duplicateMap[name].count == 1 && duplicateMap[name].wasSent)
+                if(duplicateMap[name].wasSent && duplicateMap[name].sentBeforeDuplicates)
                 {
-                    countOnes += 1;
+                    countWins += 1;
                 }
                 duplicateMap.Remove(name);
             }
 
             float percentage = 0f;
-            if(countOnes > 0)
+            if(countWins > 0)
             {
-                percentage = (float)countOnes / counts.Count;
+                percentage = (float)countWins / counts.Count;
             }
             logMessage("Win percentage " + percentage);
 
@@ -248,7 +258,8 @@ public class NFDConsumer : NFDNode
 
     void logMessage(string message)
     {
-        //print(name + ": " + message);
+        if(showLogs)
+            print(name + ": " + message);
     }
 
 
