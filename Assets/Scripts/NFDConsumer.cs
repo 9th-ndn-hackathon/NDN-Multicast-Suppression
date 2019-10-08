@@ -32,7 +32,7 @@ public class NFDConsumer : NFDNode
     private class DuplicateMapEntry
     {
         public int count;
-        public bool wasSent;
+        public float sentTime;
         public bool sentBeforeDuplicates;
         public float entryTime;
     }
@@ -76,7 +76,7 @@ public class NFDConsumer : NFDNode
                 DuplicateMapEntry entry = new DuplicateMapEntry
                 {
                     count = 0,
-                    wasSent = false,
+                    sentTime = -1f,
                     sentBeforeDuplicates = false,
                     entryTime = Time.time
                 };
@@ -105,7 +105,7 @@ public class NFDConsumer : NFDNode
                         logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
                         sendInterest(message);
                         duplicateMap[message.name].count += 1;
-                        duplicateMap[message.name].wasSent = true;
+                        duplicateMap[message.name].sentTime = Time.time;
                         duplicateMap[message.name].sentBeforeDuplicates = true;
                     }
                 }
@@ -127,7 +127,7 @@ public class NFDConsumer : NFDNode
             logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
             sendInterest(message);
             duplicateMap[message.name].count += 1;
-            duplicateMap[message.name].wasSent = true;
+            duplicateMap[message.name].sentTime = Time.time;
             if(duplicateMap[message.name].count == 1)
             {
                 duplicateMap[message.name].sentBeforeDuplicates = true;
@@ -187,7 +187,7 @@ public class NFDConsumer : NFDNode
             int countWins = 0;
             foreach (string name in removals)
             {
-                if(duplicateMap[name].wasSent && duplicateMap[name].sentBeforeDuplicates)
+                if(duplicateMap[name].sentTime != -1f && duplicateMap[name].sentBeforeDuplicates)
                 {
                     countWins += 1;
                 }
