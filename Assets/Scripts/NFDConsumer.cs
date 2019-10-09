@@ -9,6 +9,7 @@ public class NFDConsumer : NFDNode
 
     GameObject broadcastRoot;
     public float listenTime;
+    public float decisionInterval;
     public float m_supress = 0F;
     public int interestsSuppressed = 0;
     public string name;
@@ -27,7 +28,6 @@ public class NFDConsumer : NFDNode
     [SerializeField]
     bool showLogs = false;
     Dictionary<string, DuplicateMapEntry> duplicateMap;
-    Dictionary<string, bool> suppressMap;
 
     private class DuplicateMapEntry
     {
@@ -35,6 +35,9 @@ public class NFDConsumer : NFDNode
         public float sentTime;
         public bool sentBeforeDuplicates;
         public float entryTime;
+        public bool isFinished;
+        public bool wasSuppressed;
+        public bool processed;
     }
 
     void Awake()
@@ -50,8 +53,7 @@ public class NFDConsumer : NFDNode
     // Start is called before the first frame update
     void Start()
     {
-        interest_window = 5;// Random.Range(2, 10);
-        suppressMap = new Dictionary<string, bool>();
+        interest_window = 10;// Random.Range(2, 10);
         duplicateMap = new Dictionary<string, DuplicateMapEntry>();
         dataRecv = new List<string>();
         incMulticastInterests = new Queue<Packet>();
@@ -67,7 +69,7 @@ public class NFDConsumer : NFDNode
         float generationTime = MulticastManager.getInstanceOf().interestGenerationRate;
         int interestMax = MulticastManager.getInstanceOf().interestGenerationCount;
         int count = 0;
-        StartCoroutine(ListenRoutine());
+        StartCoroutine(DecisionRoutine());
         while (count < interestMax)
         {
             for(int i = 0; i < interest_window; i++)
@@ -81,17 +83,21 @@ public class NFDConsumer : NFDNode
                     entryTime = Time.time
                 };
                 duplicateMap.Add(message.name, entry);
-                suppressMap.Add(message.name, false);
                 if (checkQueue(message))
                 {
                     logMessage("Found in queue:" + message.name);
                     interestsSuppressed += 1;
-                    duplicateMap[message.name].count += 1;
+                    duplicateMap[message.name].sentTime = Time.time;
+                    duplicateMap[message.name].isFinished = true;
+                    duplicateMap[message.name].wasSuppressed = true;
                 }
                 else if (dataRecv.Contains(message.name))
                 {
                     logMessage("Data for " + name + " already recv");
                     interestsSuppressed += 1;
+                    duplicateMap[message.name].sentTime = Time.time;
+                    duplicateMap[message.name].isFinished = true;
+                    duplicateMap[message.name].wasSuppressed = true;
                 }
                 else
                 {
@@ -107,6 +113,7 @@ public class NFDConsumer : NFDNode
                         duplicateMap[message.name].count += 1;
                         duplicateMap[message.name].sentTime = Time.time;
                         duplicateMap[message.name].sentBeforeDuplicates = true;
+                        duplicateMap[message.name].isFinished = true;
                     }
                 }
 
@@ -122,13 +129,14 @@ public class NFDConsumer : NFDNode
     {
         
         yield return new WaitForSeconds(randomDelay);
-        if (!suppressMap[message.name])
+        if (!duplicateMap[message.name].wasSuppressed)
         {
             logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
             sendInterest(message);
             duplicateMap[message.name].count += 1;
             duplicateMap[message.name].sentTime = Time.time;
-            if(duplicateMap[message.name].count == 1)
+            
+            if (duplicateMap[message.name].count == 1)
             {
                 duplicateMap[message.name].sentBeforeDuplicates = true;
             }
@@ -137,7 +145,7 @@ public class NFDConsumer : NFDNode
         {
             interestsSuppressed += 1;
         }
-
+        duplicateMap[message.name].isFinished = true;
     }
 
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
@@ -152,7 +160,11 @@ public class NFDConsumer : NFDNode
         if(duplicateMap.ContainsKey(interest.name))
         {
             duplicateMap[interest.name].count += 1;
-            suppressMap[interest.name] = true;
+            if (!duplicateMap[interest.name].wasSuppressed)
+            {
+                duplicateMap[interest.name].wasSuppressed = true;
+            }
+            
         }
     }
 
@@ -166,21 +178,24 @@ public class NFDConsumer : NFDNode
         //logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
-    IEnumerator ListenRoutine()
+    IEnumerator DecisionRoutine()
     {
         while (true)
         {
             //Listen for duplicates for this amount of time.
-            yield return new WaitForSeconds(listenTime);
+            yield return new WaitForSeconds(decisionInterval);
 
             //Remove old duplicate map entries
             List<string> removals = new List<string>();
-            List<int> counts = new List<int>();
+            int total = 0;
+            float totalInterestCount = 0;
             foreach (string key in duplicateMap.Keys)
             {
-                if (duplicateMap[key].entryTime + listenTime < Time.time)
+                if (duplicateMap[key].isFinished && !duplicateMap[key].processed && duplicateMap[key].entryTime + listenTime < Time.time)
                 {
-                    counts.Add(duplicateMap[key].count);
+                    total += 1;
+                    totalInterestCount += duplicateMap[key].count;
+                    duplicateMap[key].processed = true;
                     removals.Add(key);
                 }
             }
@@ -191,21 +206,20 @@ public class NFDConsumer : NFDNode
                 {
                     countWins += 1;
                 }
-                duplicateMap.Remove(name);
             }
 
             float percentage = 0f;
-            if(countWins > 0)
+            if(countWins > 0 && total > 0)
             {
-                percentage = (float)countWins / counts.Count;
+                percentage = (float)countWins / total;
             }
-            logMessage("Win percentage " + percentage);
 
-            
-            if (percentage > .5f)
+            if (percentage > .85f)
             {
-                //We heard our own interest only.  Declare ourselves to be the winner.
+                //We were the first interest to get sent.  Declare ourselves to be the winner.
                 m_supress = 0;
+                float avgDuplicates = totalInterestCount / total;
+                print(gameObject.name + " Win percentage:" + percentage + " with avg duplicate count:"+avgDuplicates);
             }
             else if(removals.Count == 0)
             {
