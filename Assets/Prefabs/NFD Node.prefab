@@ -182,8 +182,8 @@ MonoBehaviour:
   maxPropDelay: 0.05
   packetTransmissionVisualizer: {fileID: 4927566021137766839, guid: 2689f6dce5f9d864e81773f62548be6a,
     type: 3}
-  listenTime: 0.5
-  decisionInterval: 1
+  listenTime: 0.25
+  decisionInterval: 0.5
   m_supress: 0
   interestsSuppressed: 0
   name: 

@@ -72,7 +72,7 @@ public class NFDConsumer : NFDNode
         StartCoroutine(DecisionRoutine());
         while (count < interestMax)
         {
-            for(int i = 0; i < interest_window; i++)
+            for (int i = 0; i < interest_window; i++)
             {
                 Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
                 DuplicateMapEntry entry = new DuplicateMapEntry
@@ -123,6 +123,24 @@ public class NFDConsumer : NFDNode
 
             yield return new WaitForSeconds(generationTime);
         }
+
+        //Print delay statistics
+        List<float> delays = new List<float>();
+        foreach (string key in duplicateMap.Keys)
+        {
+            float interestDelay = duplicateMap[key].sentTime - duplicateMap[key].entryTime;
+            if(duplicateMap[key].sentTime == -1f)
+            {
+                interestDelay = 0f;  //interest was suppressed.  Treat as no delay in the interest.
+            }
+            delays.Add(interestDelay);
+        }
+        string delayString = "";
+        foreach(float delay in delays)
+        {
+            delayString += ("," + delay);
+        }
+        print(gameObject.name + ":" + delayString);
     }
 
     IEnumerator SuppressionRoutine(Packet message)
@@ -220,6 +238,11 @@ public class NFDConsumer : NFDNode
                 m_supress = 0;
                 float avgDuplicates = totalInterestCount / total;
                 print(gameObject.name + " Win percentage:" + percentage + " with avg duplicate count:"+avgDuplicates);
+                if(avgDuplicates > 1.5f)
+                {
+                    //There are multiple winners.  Add some jitter.
+                    m_supress = .25f;
+                }
             }
             else if(removals.Count == 0)
             {
