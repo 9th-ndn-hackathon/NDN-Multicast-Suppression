@@ -4,40 +4,49 @@ using UnityEngine;
 
 public class NFDConsumer : NFDNode
 {
-
+    /** These fields are specific to this simulation and not transfered over to a real implementation **/
+    //Prefab for circle effect
     public GameObject packetTransmissionVisualizer;
-
-    GameObject broadcastRoot;
-    public float listenTime;
-    public float decisionInterval;
-    public float m_supress = 0F;
+    //Number of suppressed interests from this node.
     public int interestsSuppressed = 0;
-    public string name;
-    Queue<Packet> incMulticastInterests;
-    [SerializeField]
-    int queueCount;
-    [SerializeField]
-    int MAX_SUPPRESS;
+    //BroadcastMessage requires a root object
+    GameObject broadcastRoot;
+    //Used to simulate cached packets
     List<string> dataRecv;
+    //Used to simulate a congestion window of interests
     [SerializeField]
     int interest_window;
     [SerializeField]
-    int latestSequence = 0;
+    bool showLogs = false;
+
+    /**The below fields are specific to the algorithm and would be transfered over to a real implementation. **/
+
+    //Time before the decision interval checks an interest for duplicates
+    public float listenTime;
+    //Time between when the decision interval decides the suppression level
+    public float decisionInterval;
+    //Size of the suppression window
+    public float m_supress = 0F;
+    //Incoming interest queue.  These interests should probably be stored in the PIT.
+    Queue<Packet> incMulticastInterests;
+    //Max suppression window
+    [SerializeField]
+    int MAX_SUPPRESS;
+    //The current random delay being used.
     [SerializeField]
     float randomDelay = 0f;
-    [SerializeField]
-    bool showLogs = false;
-    Dictionary<string, DuplicateMapEntry> duplicateMap;
+    //The strategy info structure
+    Dictionary<string, StrategyInfoEntry> StrategyInfo;
 
-    private class DuplicateMapEntry
+    private class StrategyInfoEntry
     {
-        public int count;
-        public float sentTime;
-        public bool sentBeforeDuplicates;
-        public float entryTime;
-        public bool isFinished;
-        public bool wasSuppressed;
-        public bool processed;
+        public int duplicates;  //count of duplicate interests
+        public float sentTime;  //When this interest was sent
+        public bool sentBeforeDuplicates;  //Winner nodes send their interests before others
+        public float entryTime; //When this entry was created
+        public bool isFinished; //Has this entry been around for at least listenTime
+        public bool wasSuppressed;  //Was this interest suppressed.
+        public bool processed; //Has this interest been processed by the decision interval
     }
 
     void Awake()
@@ -54,82 +63,92 @@ public class NFDConsumer : NFDNode
     void Start()
     {
         interest_window = 10;// Random.Range(2, 10);
-        duplicateMap = new Dictionary<string, DuplicateMapEntry>();
+        StrategyInfo = new Dictionary<string, StrategyInfoEntry>();
         dataRecv = new List<string>();
         incMulticastInterests = new Queue<Packet>();
         broadcastRoot = gameObject.transform.parent.gameObject;
         StartCoroutine(GenerationRoutine());
     }
 
+    /**
+     * This routine kick starts our node to start sending blocks of interests.
+     * 
+     */
     IEnumerator GenerationRoutine()
     {
+        //Wait for a random amount of time so nodes don't all start at the same time.
         float randomStartDelay = Random.Range(0f, .25f);
         yield return new WaitForSeconds(randomStartDelay);
 
         float generationTime = MulticastManager.getInstanceOf().interestGenerationRate;
         int interestMax = MulticastManager.getInstanceOf().interestGenerationCount;
-        int count = 0;
-        StartCoroutine(DecisionRoutine());
-        while (count < interestMax)
+        int interestCount = 0;
+        StartCoroutine(DecisionEvent());  //Schedule the Decision Event
+        while (interestCount < interestMax)
         {
             for (int i = 0; i < interest_window; i++)
             {
-                Packet message = new Packet("/test/interest/" + count, Time.time, this.gameObject, Packet.PacketType.Interest);
-                DuplicateMapEntry entry = new DuplicateMapEntry
+                //Create an interest and create a strategy info object for it
+                Packet message = new Packet("/test/interest/" + interestCount, Time.time, this.gameObject, Packet.PacketType.Interest);
+                StrategyInfoEntry entry = new StrategyInfoEntry
                 {
-                    count = 0,
+                    duplicates = 0,
                     sentTime = -1f,
                     sentBeforeDuplicates = false,
                     entryTime = Time.time
                 };
-                duplicateMap.Add(message.name, entry);
-                if (checkQueue(message))
+                StrategyInfo.Add(message.name, entry);
+
+                //Look ahead case.  Did we see this interest in the past?
+                if (checkQueue(message)) 
                 {
                     logMessage("Found in queue:" + message.name);
                     interestsSuppressed += 1;
-                    duplicateMap[message.name].sentTime = Time.time;
-                    duplicateMap[message.name].isFinished = true;
-                    duplicateMap[message.name].wasSuppressed = true;
+                    StrategyInfo[message.name].sentTime = Time.time;
+                    StrategyInfo[message.name].isFinished = true;
+                    StrategyInfo[message.name].wasSuppressed = true;
                 }
+                //See if the interest reply is already cached
                 else if (dataRecv.Contains(message.name))
                 {
                     logMessage("Data for " + name + " already recv");
                     interestsSuppressed += 1;
-                    duplicateMap[message.name].sentTime = Time.time;
-                    duplicateMap[message.name].isFinished = true;
-                    duplicateMap[message.name].wasSuppressed = true;
+                    StrategyInfo[message.name].sentTime = Time.time;
+                    StrategyInfo[message.name].isFinished = true;
+                    StrategyInfo[message.name].wasSuppressed = true;
                 }
                 else
                 {
                     if (m_supress > 0)
                     {
-
-                        StartCoroutine(SuppressionRoutine(message));
+                        //Schedule the suppression event
+                        StartCoroutine(SuppressionEvent(message));
                     }
                     else
                     {
+                        //Send this interest immediately.
                         logMessage(Time.time + ":" + message.sender.name + " expresses interest " + message.name);
                         sendInterest(message);
-                        duplicateMap[message.name].count += 1;
-                        duplicateMap[message.name].sentTime = Time.time;
-                        duplicateMap[message.name].sentBeforeDuplicates = true;
-                        duplicateMap[message.name].isFinished = true;
+                        StrategyInfo[message.name].duplicates += 1;
+                        StrategyInfo[message.name].sentTime = Time.time;
+                        StrategyInfo[message.name].sentBeforeDuplicates = true;
+                        StrategyInfo[message.name].isFinished = true;
                     }
                 }
 
-                count += 1;
-                latestSequence = count;
+                interestCount += 1;
             }
 
+            //Wait some amount of time before sending the next block of interests.
             yield return new WaitForSeconds(generationTime);
         }
 
-        //Print delay statistics
+        //Print delay statistics now that this node is finished
         List<float> delays = new List<float>();
-        foreach (string key in duplicateMap.Keys)
+        foreach (string key in StrategyInfo.Keys)
         {
-            float interestDelay = duplicateMap[key].sentTime - duplicateMap[key].entryTime;
-            if(duplicateMap[key].sentTime == -1f)
+            float interestDelay = StrategyInfo[key].sentTime - StrategyInfo[key].entryTime;
+            if(StrategyInfo[key].sentTime == -1f)
             {
                 interestDelay = 0f;  //interest was suppressed.  Treat as no delay in the interest.
             }
@@ -143,29 +162,40 @@ public class NFDConsumer : NFDNode
         print(gameObject.name + ":" + delayString);
     }
 
-    IEnumerator SuppressionRoutine(Packet message)
+    /**
+     * This event is fired after randomDelay and checks if a duplicate
+     * interest was overheard or if the interest still needs to be sent.
+     */
+    IEnumerator SuppressionEvent(Packet message)
     {
         
-        yield return new WaitForSeconds(randomDelay);
-        if (!duplicateMap[message.name].wasSuppressed)
+        yield return new WaitForSeconds(randomDelay);  //Normally this would be done by NFD's scheduler.
+        if (!StrategyInfo[message.name].wasSuppressed)
         {
+            //No duplicates were heard so this interest is not suppressed. Send it now.
             logMessage(Time.time + ":"+ message.sender.name + " expresses interest " + message.name);
             sendInterest(message);
-            duplicateMap[message.name].count += 1;
-            duplicateMap[message.name].sentTime = Time.time;
+            StrategyInfo[message.name].duplicates += 1;  //This should be exactly 1 since no other duplicates were heard.
+            StrategyInfo[message.name].sentTime = Time.time;
             
-            if (duplicateMap[message.name].count == 1)
+            if (StrategyInfo[message.name].duplicates == 1)
             {
-                duplicateMap[message.name].sentBeforeDuplicates = true;
+                StrategyInfo[message.name].sentBeforeDuplicates = true;
             }
         }
         else
         {
+            //This interest was suppressed.
             interestsSuppressed += 1;
         }
-        duplicateMap[message.name].isFinished = true;
+        
+        //This interest is finished (either suppressed or sent)
+        StrategyInfo[message.name].isFinished = true;
     }
 
+    /**
+     * This is used to simulate interest delay between nodes.  Analgous to an interest recieved event.
+     */
     IEnumerator ProcessInterestDelay(float delay, Packet interest)
     {
         yield return new WaitForSeconds(delay);
@@ -175,17 +205,20 @@ public class NFDConsumer : NFDNode
         enqueue(interest);
 
         //Check if it is a duplicate of the interest we are currently interested in.
-        if(duplicateMap.ContainsKey(interest.name))
+        if(StrategyInfo.ContainsKey(interest.name))
         {
-            duplicateMap[interest.name].count += 1;
-            if (!duplicateMap[interest.name].wasSuppressed)
+            StrategyInfo[interest.name].duplicates += 1;
+            if (!StrategyInfo[interest.name].wasSuppressed && !StrategyInfo[interest.name].isFinished)
             {
-                duplicateMap[interest.name].wasSuppressed = true;
+                StrategyInfo[interest.name].wasSuppressed = true;
             }
             
         }
     }
 
+    /**
+     * This is used to simulate data reply delay between nodes. Analgous to data recieved event.
+     */
     IEnumerator ProcessDataDelay(float delay, Packet data)
     {
         yield return new WaitForSeconds(delay);
@@ -196,36 +229,42 @@ public class NFDConsumer : NFDNode
         //logMessage(Time.time + ":Data from " + data.sender.name + " with name " + data.name);
     }
 
-    IEnumerator DecisionRoutine()
+    /**
+     * This self scheduling event looks at a block of interests and decides if the node should suppress
+     * multicast interests or set it to 0 (winner case).  It also determines the random delay for
+     * the next block of interests.
+     */
+    IEnumerator DecisionEvent()
     {
         while (true)
         {
-            //Listen for duplicates for this amount of time.
-            yield return new WaitForSeconds(decisionInterval);
 
-            //Remove old duplicate map entries
-            List<string> removals = new List<string>();
+            //Gather list of interests to process
+            List<string> processList = new List<string>();
             int total = 0;
             float totalInterestCount = 0;
-            foreach (string key in duplicateMap.Keys)
+            foreach (string key in StrategyInfo.Keys)
             {
-                if (duplicateMap[key].isFinished && !duplicateMap[key].processed && duplicateMap[key].entryTime + listenTime < Time.time)
+                if (StrategyInfo[key].isFinished && !StrategyInfo[key].processed && StrategyInfo[key].entryTime + listenTime < Time.time)
                 {
                     total += 1;
-                    totalInterestCount += duplicateMap[key].count;
-                    duplicateMap[key].processed = true;
-                    removals.Add(key);
+                    totalInterestCount += StrategyInfo[key].duplicates;
+                    StrategyInfo[key].processed = true;
+                    processList.Add(key);
                 }
             }
+
+            //Count the number of interests that were sent BEFORE duplicates were overheard.
             int countWins = 0;
-            foreach (string name in removals)
+            foreach (string name in processList)
             {
-                if(duplicateMap[name].sentTime != -1f && duplicateMap[name].sentBeforeDuplicates)
+                if(StrategyInfo[name].sentTime != -1f && StrategyInfo[name].sentBeforeDuplicates)
                 {
                     countWins += 1;
                 }
             }
 
+            //Determine win percentage.
             float percentage = 0f;
             if(countWins > 0 && total > 0)
             {
@@ -234,26 +273,25 @@ public class NFDConsumer : NFDNode
 
             if (percentage > .85f)
             {
-                //We were the first interest to get sent.  Declare ourselves to be the winner.
+                //This node is a winner for this block.
                 m_supress = 0;
+                //If duplicates were still overheard then multiple winners were found.  Add a bit of jitter to reconcile this.
                 float avgDuplicates = totalInterestCount / total;
-                print(gameObject.name + " Win percentage:" + percentage + " with avg duplicate count:"+avgDuplicates);
                 if(avgDuplicates > 1.5f)
                 {
-                    //There are multiple winners.  Add some jitter.
                     m_supress = .25f;
                 }
             }
-            else if(removals.Count == 0)
+            else if(processList.Count == 0)
             {
                 //do nothing
             }
             else
             {
-                //Start with 500ms suppression,  then double it up to MAX_SUPPRESS
+                //Start with an initial suppression,  then double it up to MAX_SUPPRESS
                 if (m_supress == 0)
                 {
-                    m_supress = .5f;
+                    m_supress = .25f;
                 }
                 else
                 {
@@ -263,8 +301,10 @@ public class NFDConsumer : NFDNode
 
             //Choose new randomDelay
             m_supress = Mathf.Min(m_supress, MAX_SUPPRESS);
-            //float randomDelay = Random.Range(m_supress / 2, m_supress * 2);
             randomDelay = Random.Range(0, m_supress);
+
+            //Have this event re-schedule itself.
+            yield return new WaitForSeconds(decisionInterval);
 
         }
     }
@@ -306,7 +346,6 @@ public class NFDConsumer : NFDNode
         if (!inQueue)
         {
             incMulticastInterests.Enqueue(interest);
-            queueCount += 1;
         }
             
     }

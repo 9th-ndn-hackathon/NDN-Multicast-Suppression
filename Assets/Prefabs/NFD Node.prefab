@@ -184,11 +184,11 @@ MonoBehaviour:
     type: 3}
   listenTime: 0.25
   decisionInterval: 0.5
-  m_supress: 0
+  m_supress: 0.25
   interestsSuppressed: 0
   name: 
   queueCount: 0
-  MAX_SUPPRESS: 4
+  MAX_SUPPRESS: 2
   interest_window: 0
   latestSequence: 0
   randomDelay: 0
