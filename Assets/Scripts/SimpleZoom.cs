@@ -16,7 +16,7 @@ public class SimpleZoom : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        float change = Input.mouseScrollDelta.y* scale * -1f;
-        camera.orthographicSize += change;
+        float change = Input.mouseScrollDelta.y * scale;
+        transform.Translate(new Vector3(0, 0, change));
     }
 }
